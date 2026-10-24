@@ -4,10 +4,23 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from './db/db'
 import { verkleinereFoto } from './logik/foto'
 
+/**
+ * Seitenkopf. zurueck = feste Zielseite; zurueck="verlauf" geht wie der Zurück-Knopf
+ * des Browsers dorthin, woher man kam (z. B. Fahrzeug aus Übersicht oder Rundgang).
+ */
 export function Kopf({ titel, zurueck, children }: { titel: string; zurueck?: string; children?: ReactNode }) {
   return (
     <header className="kopf">
-      {zurueck !== undefined && (
+      {zurueck === 'verlauf' ? (
+        <button
+          type="button"
+          className="zurueck"
+          aria-label="Zurück"
+          onClick={() => (history.length > 1 ? history.back() : (location.hash = '#/'))}
+        >
+          ‹
+        </button>
+      ) : zurueck !== undefined && (
         <a className="zurueck" href={`#/${zurueck}`} aria-label="Zurück">
           ‹
         </a>

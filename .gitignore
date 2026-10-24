@@ -3,3 +3,4 @@ dist
 dev-dist
 *.local
 .claude/settings.local.json
+.claude/launch.json

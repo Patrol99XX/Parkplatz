@@ -102,6 +102,15 @@ export async function rundeAbschliessen(rundeId: string) {
   })
 }
 
+/** Nur für versehentlich gestartete Kontrollen, in denen noch nichts erfasst wurde. */
+export async function rundeVerwerfen(rundeId: string) {
+  await db.transaction('rw', db.runden, db.sichtungen, async () => {
+    const anzahl = await db.sichtungen.where('rundeId').equals(rundeId).count()
+    if (anzahl > 0) throw new Error('In dieser Kontrolle wurde schon etwas erfasst.')
+    await db.runden.delete(rundeId)
+  })
+}
+
 // ---------- Sichtungen ----------
 
 /**
