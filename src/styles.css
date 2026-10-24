@@ -119,8 +119,9 @@ a {
   position: relative;
 }
 
-.reiter a svg {
-  margin-bottom: 2px;
+.reiter a span {
+  font-size: 1.4rem;
+  line-height: 1.2;
 }
 
 .reiter a.aktiv {
