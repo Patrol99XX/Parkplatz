@@ -1,9 +1,19 @@
 import { useEffect, useState } from 'react'
+import { useLiveQuery } from 'dexie-react-hooks'
+import { db } from '../db/db'
 import { useEinstellungen } from '../db/hooks'
-import { dateiWeitergeben, sicherungEinlesen, sicherungErstellen, sicherungMerken } from '../db/sicherung'
+import {
+  alleDatenLoeschen,
+  dateiWeitergeben,
+  sicherungEinlesen,
+  sicherungErstellen,
+  sicherungMerken,
+} from '../db/sicherung'
 import { formatDatumZeit } from '../logik/zeit'
 import { sicherungFaellig } from '../logik/sicherung'
 import { Hinweis, Kopf, mitFehlermeldung } from '../komponenten'
+
+const anzahl = (n: number, eins: string, mehr: string) => `${n} ${n === 1 ? eins : mehr}`
 
 export function Sicherung() {
   const einstellungen = useEinstellungen()
@@ -11,6 +21,11 @@ export function Sicherung() {
   const [arbeitet, setArbeitet] = useState(false)
   const [meldung, setMeldung] = useState('')
   const [dauerhaft, setDauerhaft] = useState<boolean | null>(null)
+  const bestand = useLiveQuery(async () => ({
+    runden: await db.runden.count(),
+    vorgaenge: await db.vorgaenge.count(),
+    fotos: await db.fotos.count(),
+  }))
 
   useEffect(() => {
     navigator.storage?.persisted?.().then(setDauerhaft, () => setDauerhaft(null))
@@ -98,6 +113,33 @@ export function Sicherung() {
             }}
           />
         </label>
+      </section>
+
+      <section className="karte">
+        <h2>Alle Daten löschen</h2>
+        <p className="klein">
+          Zum Beispiel, um nach dem Ausprobieren mit leerer App zu starten. Gelöscht werden alle
+          Kontrollen, Fahrzeuge und Fotos
+          {bestand &&
+            ` (zurzeit ${anzahl(bestand.runden, 'Kontrolle', 'Kontrollen')}, ${anzahl(bestand.vorgaenge, 'Fahrzeug', 'Fahrzeuge')}, ${anzahl(bestand.fotos, 'Foto', 'Fotos')})`}.
+          Ebenen und E-Mail-Empfänger bleiben erhalten.
+        </p>
+        <button
+          type="button"
+          className="knopf gross gefahr"
+          disabled={!bestand || bestand.runden + bestand.vorgaenge === 0}
+          onClick={async () => {
+            // Zwei Rückfragen, weil sich das nicht rückgängig machen lässt
+            if (!confirm('Wirklich ALLE Kontrollen, Fahrzeuge und Fotos löschen?')) return
+            if (!confirm('Letzte Rückfrage: Das lässt sich nicht rückgängig machen (außer über eine Sicherungsdatei). Jetzt löschen?')) return
+            await mitFehlermeldung(alleDatenLoeschen)
+            setVorbereitet(null)
+            setMeldung('Alle Daten gelöscht. Die App ist wieder leer.')
+            window.scrollTo(0, 0)
+          }}
+        >
+          Alle Daten löschen
+        </button>
       </section>
 
       {dauerhaft === false && (

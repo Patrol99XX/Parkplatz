@@ -74,6 +74,17 @@ export async function sicherungMerken() {
 }
 
 /**
+ * Löscht alle Kontrollen, Fahrzeuge, Fotos usw. – z. B. Testdaten vor dem echten Start.
+ * Die Einstellungen (Ebenen, E-Mail-Empfänger) bleiben erhalten.
+ */
+export async function alleDatenLoeschen() {
+  const tabellen = TABELLEN.filter((t) => t !== 'einstellungen').map((t) => db.table(t))
+  await db.transaction('rw', tabellen, async () => {
+    for (const t of tabellen) await t.clear()
+  })
+}
+
+/**
  * Stellt eine Sicherung wieder her. Alle vorhandenen Daten werden dabei ersetzt –
  * so ist der Stand danach genau der der Sicherung, ohne Mischmasch.
  */
