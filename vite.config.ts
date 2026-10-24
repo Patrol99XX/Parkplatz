@@ -34,5 +34,8 @@ export default defineConfig({
   ],
   test: {
     include: ['src/**/*.test.ts'],
+    // Feste Zeitzone, damit die Tests zur Zeitumstellung überall gleich laufen
+    // (auch auf GitHub, dort ist sonst UTC eingestellt).
+    env: { TZ: 'Europe/Berlin' },
   },
 })
