@@ -52,6 +52,7 @@ export function standardEinstellungen(): Einstellungen {
     aufbewahrung: { fotosTage: 30, vorgaengeTage: 90 },
     letzterKontrolleur: '',
     letzteSicherungAm: null,
+    berichtEmpfaenger: '',
     erstelltAm: jetzt,
     geaendertAm: jetzt,
   }

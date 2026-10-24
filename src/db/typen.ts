@@ -99,6 +99,8 @@ export interface Einstellungen extends Zeitstempel {
   aufbewahrung: { fotosTage: number; vorgaengeTage: number }
   letzterKontrolleur: string
   letzteSicherungAm: string | null
+  /** E-Mail-Adresse für den Bericht nach einer Kontrolle. Optional, weil ältere Datenbanken das Feld noch nicht haben. */
+  berichtEmpfaenger?: string
 }
 
 export const RUNDEN_TYP_TEXT: Record<RundenTyp, string> = {

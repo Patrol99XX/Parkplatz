@@ -56,6 +56,12 @@ export async function ebeneLoeschen(id: string): Promise<boolean> {
   return true
 }
 
+export async function berichtEmpfaengerSetzen(adresse: string) {
+  await einstellungenAendern((e) => {
+    e.berichtEmpfaenger = adresse.trim()
+  })
+}
+
 // ---------- Runden ----------
 
 export async function aktiveRunde(): Promise<Runde | undefined> {

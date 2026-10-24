@@ -57,7 +57,7 @@ fortlaufenden Nummern).
   `kunde_kontaktiert` | `eskalation_leitung` | `sonstiges`), zeitpunkt, notiz
 - **Foto**: id, vorgangId, blob, aufgenommenAm
 - **Einstellungen**: Ebenen (Liste, frei benennbar), Eskalationsschwellen,
-  Aufbewahrungsfristen
+  Aufbewahrungsfristen, berichtEmpfaenger (E-Mail für den Bericht nach der Kontrolle)
 
 Standard-Ebenen (in den Einstellungen änderbar): „Parkhaus Ebene 0“, „Parkhaus Ebene −1“,
 „Fläche neu“, „Fläche ganz neu“. Die genauen Bezeichnungen legt der Nutzer fest.
@@ -80,6 +80,9 @@ Standard-Ebenen (in den Einstellungen änderbar): „Parkhaus Ebene 0“, „Par
    und müssen entschieden werden, bevor die Runde abgeschlossen wird.
 3. Neue Fahrzeuge erfassen: Kennzeichen, Modell, Ebene, optional Foto und Kategorie.
 4. Nach Abschluss zeigt die App die Klärungsliste dieser Runde.
+5. Nach Abschluss: Knopf „Bericht per E-Mail senden“ öffnet die Mail-App (mailto, nur Text,
+   keine Fotos) mit allen Fahrzeugen, die seit gestern oder länger stehen (Kalendertage),
+   gruppiert nach Ebene. Empfänger in den Einstellungen (mehrere mit Komma).
 
 ### Kennzeichen-Erkennung
 - Normalisierung: Großbuchstaben, Leerzeichen und Bindestriche entfernen

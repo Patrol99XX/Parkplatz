@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Kopf, mitFehlermeldung } from '../komponenten'
 import { useEinstellungen } from '../db/hooks'
 import {
+  berichtEmpfaengerSetzen,
   ebeneAktivSetzen,
   ebeneHinzufuegen,
   ebeneLoeschen,
@@ -94,6 +95,28 @@ export function Einstellungen() {
             Hinzufügen
           </button>
         </form>
+      </section>
+
+      <section className="karte">
+        <h2>Bericht per E-Mail</h2>
+        <p className="klein">
+          An diese Adresse geht der Bericht nach einer Kontrolle (Fahrzeuge, die seit gestern oder
+          länger stehen). Mehrere Adressen mit Komma trennen.
+        </p>
+        <input
+          type="email"
+          multiple
+          aria-label="E-Mail-Empfänger"
+          placeholder="name@firma.de"
+          defaultValue={einstellungen.berichtEmpfaenger ?? ''}
+          autoCapitalize="off"
+          autoCorrect="off"
+          onBlur={(ev) => {
+            if (ev.target.value.trim() !== (einstellungen.berichtEmpfaenger ?? '')) {
+              berichtEmpfaengerSetzen(ev.target.value)
+            }
+          }}
+        />
       </section>
     </>
   )
