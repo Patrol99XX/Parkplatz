@@ -1,12 +1,18 @@
-// Erzeugt die App-Symbole (weißes „P“ auf Blau) als PNG – ohne zusätzliche Bibliothek,
+// Erzeugt die App-Symbole (weißes „P“ auf Schwarz mit rotem Balken) als PNG – ohne zusätzliche Bibliothek,
 // nur mit dem zlib-Modul von Node. Aufruf: npm run icons
 import { writeFileSync, mkdirSync } from 'node:fs'
 import { deflateSync } from 'node:zlib'
 
-const BLAU = [0x0b, 0x4f, 0x8a]
+const SCHWARZ = [0x11, 0x11, 0x11]
 const WEISS = [0xff, 0xff, 0xff]
+const ROT = [0xd5, 0x0f, 0x25]
 
-// Liegt der Punkt (x, y) im Bereich 0..1 auf dem weißen „P“?
+// Farbe am Punkt (x, y) im Bereich 0..1: weißes „P“, roter Balken darunter, sonst Schwarz.
+function farbe(x, y) {
+  if (x >= 0.3 && x <= 0.7 && y >= 0.84 && y <= 0.89) return ROT
+  return istP(x, y) ? WEISS : SCHWARZ
+}
+
 function istP(x, y) {
   const stamm = x >= 0.3 && x <= 0.42 && y >= 0.2 && y <= 0.8
   const cx = 0.5
@@ -44,12 +50,13 @@ function png(groesse) {
   for (let py = 0; py < groesse; py++) {
     const zeile = Buffer.alloc(1 + groesse * 3) // Filterbyte 0 + RGB
     for (let px = 0; px < groesse; px++) {
-      let treffer = 0
+      const summe = [0, 0, 0]
       for (let sy = 0; sy < ss; sy++)
-        for (let sx = 0; sx < ss; sx++)
-          if (istP((px + (sx + 0.5) / ss) / groesse, (py + (sy + 0.5) / ss) / groesse)) treffer++
-      const a = treffer / (ss * ss)
-      for (let k = 0; k < 3; k++) zeile[1 + px * 3 + k] = Math.round(BLAU[k] * (1 - a) + WEISS[k] * a)
+        for (let sx = 0; sx < ss; sx++) {
+          const f = farbe((px + (sx + 0.5) / ss) / groesse, (py + (sy + 0.5) / ss) / groesse)
+          for (let k = 0; k < 3; k++) summe[k] += f[k]
+        }
+      for (let k = 0; k < 3; k++) zeile[1 + px * 3 + k] = Math.round(summe[k] / (ss * ss))
     }
     zeilen.push(zeile)
   }

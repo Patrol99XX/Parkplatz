@@ -3,16 +3,19 @@
    Zuerst für das iPhone im Hochformat gebaut, auf dem iPad wird es breiter. */
 
 :root {
-  --blau: #0b4f8a;
-  --blau-hell: #e3eef8;
+  /* Hausfarben: Schwarz und Weiß, kräftiges Rot nur für Akzente.
+     Grün/Gelb/Grau sind Statusfarben (noch da, Warnung, weg), keine Gestaltung. */
+  --schwarz: #111;
+  --akzent: #d50f25;
+  --akzent-hell: #fde8ea;
   --gruen: #13723a;
   --gruen-hell: #e2f4e8;
-  --grau: #4a5560;
-  --grau-hell: #e8ecef;
-  --rot: #b3261e;
+  --grau: #555;
+  --grau-hell: #ececec;
+  --rot: #d50f25;
   --gelb-hell: #fff4d1;
-  --rand: #c5ccd3;
-  --hintergrund: #f4f6f8;
+  --rand: #cfcfcf;
+  --hintergrund: #f5f5f5;
   --text: #111;
   --tippflaeche: 48px;
 
@@ -57,7 +60,7 @@ h2 {
 }
 
 a {
-  color: var(--blau);
+  color: var(--akzent);
 }
 
 /* ---------- Kopfzeile ---------- */
@@ -77,7 +80,7 @@ a {
 .zurueck {
   background: none;
   border: none;
-  color: var(--blau);
+  color: var(--schwarz);
   padding: 0;
   display: inline-flex;
   align-items: center;
@@ -111,19 +114,19 @@ a {
   justify-content: center;
   min-height: 60px;
   font-size: 0.72rem;
-  color: var(--grau);
+  color: var(--schwarz);
   text-decoration: none;
   position: relative;
 }
 
-.reiter a span {
-  font-size: 1.4rem;
-  line-height: 1.2;
+.reiter a svg {
+  margin-bottom: 2px;
 }
 
 .reiter a.aktiv {
-  color: var(--blau);
+  color: var(--akzent);
   font-weight: 700;
+  box-shadow: inset 0 3px 0 var(--akzent);
 }
 
 .punkt {
@@ -133,7 +136,7 @@ a {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: var(--gruen);
+  background: var(--akzent);
 }
 
 /* ---------- Formulare und Knöpfe ---------- */
@@ -157,7 +160,7 @@ input:focus,
 select:focus,
 textarea:focus {
   outline: none;
-  border-color: var(--blau);
+  border-color: var(--schwarz);
 }
 
 textarea {
@@ -187,8 +190,8 @@ label.feld > span,
   font: inherit;
   font-weight: 600;
   border-radius: 10px;
-  border: 2px solid var(--blau);
-  background: var(--blau);
+  border: 2px solid var(--schwarz);
+  background: var(--schwarz);
   color: #fff;
   text-decoration: none;
   cursor: pointer;
@@ -202,7 +205,7 @@ label.feld > span,
 
 .knopf.zweitrangig {
   background: #fff;
-  color: var(--blau);
+  color: var(--schwarz);
 }
 
 .knopf.gefahr {
@@ -222,7 +225,7 @@ label.feld > span,
   min-width: var(--tippflaeche);
   font-size: 0.9rem;
   background: #fff;
-  color: var(--blau);
+  color: var(--schwarz);
 }
 
 .knopf.klein-knopf.gefahr {
@@ -262,11 +265,11 @@ label.feld > span,
 .auswahl button {
   flex: 1 1 auto;
   background: #fff;
-  color: var(--blau);
+  color: var(--schwarz);
 }
 
 .auswahl button.gewaehlt {
-  background: var(--blau);
+  background: var(--schwarz);
   color: #fff;
 }
 
@@ -360,8 +363,8 @@ label.feld > span,
 }
 
 .marke.neu {
-  background: var(--blau-hell);
-  color: var(--blau);
+  background: var(--akzent-hell);
+  color: var(--akzent);
 }
 
 /* Rundgang-Karte: oben Angaben, darunter die beiden großen Knöpfe */
@@ -457,7 +460,7 @@ label.feld > span,
 .text-knopf {
   background: none;
   border: none;
-  color: var(--blau);
+  color: var(--akzent);
   font: inherit;
   font-size: 0.9rem;
   padding: 10px 0;
@@ -471,7 +474,7 @@ label.feld > span,
   left: 0;
   right: 0;
   bottom: calc(60px + env(safe-area-inset-bottom));
-  background: rgba(244, 246, 248, 0.96);
+  background: rgba(245, 245, 245, 0.96);
   border-top: 1px solid var(--rand);
   padding: 10px calc(env(safe-area-inset-right) + 16px) 10px calc(env(safe-area-inset-left) + 16px);
   z-index: 9;
@@ -492,8 +495,8 @@ label.feld > span,
   border-radius: 10px;
   padding: 12px 14px;
   margin-bottom: 12px;
-  border-left: 6px solid var(--blau);
-  background: var(--blau-hell);
+  border-left: 6px solid var(--schwarz);
+  background: var(--grau-hell);
 }
 
 .hinweis.warnung {
