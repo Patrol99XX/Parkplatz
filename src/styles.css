@@ -1,16 +1,619 @@
+/* Gestaltung für Bedienung im Stehen und im Freien:
+   große Schrift, große Touch-Flächen (mind. 48 px), hoher Kontrast.
+   Zuerst für das iPhone im Hochformat gebaut, auf dem iPad wird es breiter. */
+
 :root {
+  --blau: #0b4f8a;
+  --blau-hell: #e3eef8;
+  --gruen: #13723a;
+  --gruen-hell: #e2f4e8;
+  --grau: #4a5560;
+  --grau-hell: #e8ecef;
+  --rot: #b3261e;
+  --gelb-hell: #fff4d1;
+  --rand: #c5ccd3;
+  --hintergrund: #f4f6f8;
+  --text: #111;
+  --tippflaeche: 48px;
+
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 18px;
-  color: #111;
-  background: #f4f6f8;
+  line-height: 1.4;
+  color: var(--text);
+  background: var(--hintergrund);
+  -webkit-text-size-adjust: 100%;
+}
+
+* {
+  box-sizing: border-box;
 }
 
 body {
   margin: 0;
+  background: var(--hintergrund);
 }
 
 .seite {
   max-width: 900px;
   margin: 0 auto;
-  padding: 16px;
+  /* Platz für Kamera-Aussparung oben und die Reiterleiste unten */
+  padding: calc(env(safe-area-inset-top) + 8px) calc(env(safe-area-inset-right) + 16px)
+    calc(env(safe-area-inset-bottom) + 96px) calc(env(safe-area-inset-left) + 16px);
+}
+
+h1 {
+  font-size: 1.5rem;
+  margin: 0;
+}
+
+h2 {
+  font-size: 1.15rem;
+  margin: 0 0 8px;
+}
+
+.klein {
+  font-size: 0.85rem;
+  color: var(--grau);
+}
+
+a {
+  color: var(--blau);
+}
+
+/* ---------- Kopfzeile ---------- */
+
+.kopf {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--tippflaeche);
+  margin-bottom: 12px;
+}
+
+.kopf h1 {
+  flex: 1;
+}
+
+.zurueck {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--tippflaeche);
+  min-height: var(--tippflaeche);
+  font-size: 2.2rem;
+  text-decoration: none;
+  margin-left: -12px;
+}
+
+/* ---------- Reiterleiste unten (mit dem Daumen erreichbar) ---------- */
+
+.reiter {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  background: #fff;
+  border-top: 1px solid var(--rand);
+  padding-bottom: env(safe-area-inset-bottom);
+  z-index: 10;
+}
+
+.reiter a {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60px;
+  font-size: 0.72rem;
+  color: var(--grau);
+  text-decoration: none;
+  position: relative;
+}
+
+.reiter a span {
+  font-size: 1.4rem;
+  line-height: 1.2;
+}
+
+.reiter a.aktiv {
+  color: var(--blau);
+  font-weight: 700;
+}
+
+.punkt {
+  position: absolute;
+  top: 8px;
+  right: calc(50% - 22px);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--gruen);
+}
+
+/* ---------- Formulare und Knöpfe ---------- */
+
+input,
+select,
+textarea {
+  /* mind. 16 px, sonst zoomt Safari beim Antippen in das Feld */
+  font: inherit;
+  font-size: max(16px, 1rem);
+  width: 100%;
+  min-height: var(--tippflaeche);
+  padding: 8px 12px;
+  border: 2px solid var(--rand);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--text);
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--blau);
+}
+
+textarea {
+  min-height: 80px;
+}
+
+label.feld {
+  display: block;
+  margin-bottom: 14px;
+}
+
+label.feld > span,
+.feld-titel {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.knopf,
+.auswahl button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: var(--tippflaeche);
+  padding: 8px 16px;
+  font: inherit;
+  font-weight: 600;
+  border-radius: 10px;
+  border: 2px solid var(--blau);
+  background: var(--blau);
+  color: #fff;
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.knopf:disabled {
+  opacity: 0.4;
+}
+
+.knopf.zweitrangig {
+  background: #fff;
+  color: var(--blau);
+}
+
+.knopf.gefahr {
+  background: #fff;
+  color: var(--rot);
+  border-color: var(--rot);
+}
+
+.knopf.gross {
+  width: 100%;
+  min-height: 60px;
+  font-size: 1.1rem;
+}
+
+.knopf.klein-knopf {
+  padding: 8px 12px;
+  min-width: var(--tippflaeche);
+  font-size: 0.9rem;
+  background: #fff;
+  color: var(--blau);
+}
+
+.knopf.klein-knopf.gefahr {
+  color: var(--rot);
+  border-color: var(--rot);
+}
+
+.foto-knopf.laedt {
+  opacity: 0.6;
+}
+
+.knopf-reihe {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.knopf-reihe > * {
+  flex: 1 1 140px;
+}
+
+.zeile {
+  display: flex;
+  gap: 8px;
+}
+
+.zeile input {
+  flex: 1;
+}
+
+.auswahl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.auswahl button {
+  flex: 1 1 auto;
+  background: #fff;
+  color: var(--blau);
+}
+
+.auswahl button.gewaehlt {
+  background: var(--blau);
+  color: #fff;
+}
+
+/* ---------- Karten und Listen ---------- */
+
+.karte {
+  background: #fff;
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 12px;
+  border: 1px solid var(--rand);
+}
+
+.gruppe-titel {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin: 20px 0 8px;
+  font-size: 1.05rem;
+}
+
+.gruppe-titel .anzahl {
+  font-size: 0.9rem;
+  color: var(--grau);
+  font-weight: 400;
+}
+
+.leer {
+  color: var(--grau);
+  font-style: italic;
+  margin: 8px 0;
+}
+
+.fahrzeug {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--rand);
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.fahrzeug .vorschau {
+  flex: 0 0 64px;
+  width: 64px;
+  height: 64px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--grau-hell);
+}
+
+.fahrzeug .vorschau img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.fahrzeug .angaben {
+  flex: 1;
+  min-width: 0;
+}
+
+.kennzeichen {
+  font-weight: 800;
+  font-size: 1.2rem;
+  letter-spacing: 0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.unterzeile {
+  font-size: 0.9rem;
+  color: var(--grau);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.marke {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--grau-hell);
+  color: var(--grau);
+  vertical-align: middle;
+  margin-left: 6px;
+}
+
+.marke.neu {
+  background: var(--blau-hell);
+  color: var(--blau);
+}
+
+/* Rundgang-Karte: oben Angaben, darunter die beiden großen Knöpfe */
+.rund-fahrzeug {
+  background: #fff;
+  border: 2px solid var(--rand);
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+
+.rund-fahrzeug.noch_da,
+.rund-fahrzeug.neu {
+  border-color: var(--gruen);
+  background: var(--gruen-hell);
+}
+
+.rund-fahrzeug.weg {
+  border-color: var(--grau);
+  background: var(--grau-hell);
+}
+
+.rund-fahrzeug .kopfteil {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  color: inherit;
+  text-decoration: none;
+}
+
+.entscheidung {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.entscheidung button {
+  flex: 1;
+  min-height: 56px;
+  font: inherit;
+  font-weight: 700;
+  font-size: 1.05rem;
+  border-radius: 10px;
+  border: 2px solid;
+  background: #fff;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.entscheidung .da {
+  border-color: var(--gruen);
+  color: var(--gruen);
+}
+
+.entscheidung .da.gewaehlt {
+  background: var(--gruen);
+  color: #fff;
+}
+
+.entscheidung .weg {
+  border-color: var(--grau);
+  color: var(--grau);
+}
+
+.entscheidung .weg.gewaehlt {
+  background: var(--grau);
+  color: #fff;
+}
+
+.ebene-wechsel {
+  margin-top: 8px;
+}
+
+.text-knopf {
+  background: none;
+  border: none;
+  color: var(--blau);
+  font: inherit;
+  font-size: 0.9rem;
+  padding: 10px 0;
+  min-height: 44px;
+  text-decoration: underline;
+}
+
+/* Leiste unten über den Reitern, z. B. „Runde abschließen“ */
+.fusszeile {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(60px + env(safe-area-inset-bottom));
+  background: rgba(244, 246, 248, 0.96);
+  border-top: 1px solid var(--rand);
+  padding: 10px calc(env(safe-area-inset-right) + 16px) 10px calc(env(safe-area-inset-left) + 16px);
+  z-index: 9;
+}
+
+.fusszeile > * {
+  max-width: 868px;
+  margin: 0 auto;
+}
+
+.mit-fusszeile {
+  padding-bottom: 90px;
+}
+
+/* ---------- Hinweise ---------- */
+
+.hinweis {
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  border-left: 6px solid var(--blau);
+  background: var(--blau-hell);
+}
+
+.hinweis.warnung {
+  border-color: #b7791f;
+  background: var(--gelb-hell);
+}
+
+.hinweis.fehler {
+  border-color: var(--rot);
+  background: #fde8e7;
+}
+
+.hinweis p {
+  margin: 0 0 6px;
+}
+
+.hinweis p:last-child {
+  margin-bottom: 0;
+}
+
+/* ---------- Fotos ---------- */
+
+.fotos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.fotos .foto {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--grau-hell);
+}
+
+.fotos img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.fotos .entfernen {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  font-size: 1.1rem;
+}
+
+.foto-fehlt {
+  width: 100%;
+  height: 100%;
+  background: var(--grau-hell);
+}
+
+.vollbild {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.vollbild img {
+  max-width: 100%;
+  max-height: 100%;
+}
+
+/* ---------- Einstellungen ---------- */
+
+.ebenen-liste {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 12px;
+}
+
+.ebenen-liste li {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--grau-hell);
+}
+
+.ebenen-liste li.ausgeblendet input {
+  color: var(--grau);
+  text-decoration: line-through;
+}
+
+.ebene-knoepfe {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+/* ---------- Tabellen (Verlauf) ---------- */
+
+.verlauf {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.verlauf li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--grau-hell);
+  font-size: 0.95rem;
+}
+
+.zahlen {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.zahlen div {
+  background: #fff;
+  border: 1px solid var(--rand);
+  border-radius: 12px;
+  padding: 10px;
+  text-align: center;
+}
+
+.zahlen strong {
+  display: block;
+  font-size: 1.6rem;
+}
+
+/* iPad und breiter: Fahrzeuge zweispaltig */
+@media (min-width: 700px) {
+  .raster {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 10px;
+  }
 }
