@@ -469,6 +469,22 @@ label.feld > span,
   text-decoration: underline;
 }
 
+/* Suchfeld im Rundgang bleibt beim Scrollen oben stehen */
+.suchleiste {
+  position: sticky;
+  top: env(safe-area-inset-top);
+  z-index: 5;
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 6px 0;
+  background: var(--hintergrund);
+}
+
+.suchleiste input {
+  flex: 1;
+}
+
 /* Leiste unten über den Reitern, z. B. „Runde abschließen“ */
 .fusszeile {
   position: fixed;

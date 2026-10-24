@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/db'
 import { ebenenName, useAktiveRunde, useEinstellungen } from '../db/hooks'
 import { rundeAbschliessen, rundeStarten, rundeVerwerfen, sichtungSetzen, vorgangAendern, wegRueckgaengig } from '../db/aktionen'
 import { RUNDEN_TYP_TEXT, type Einstellungen, type Runde, type RundenTyp, type Sichtung, type Vorgang } from '../db/typen'
 import { formatZeit, standdauerText, vorgeschlagenerRundenTyp } from '../logik/zeit'
+import { normalisiereKennzeichen } from '../logik/kennzeichen'
 import { Auswahl, FotoAusDb, Hinweis, Kopf, mitFehlermeldung } from '../komponenten'
 import { geheZu } from '../navigation'
 
@@ -96,12 +97,23 @@ function nachEbene(vorgaenge: Vorgang[], einstellungen: Einstellungen) {
 function Laufend({ runde, einstellungen }: { runde: Runde; einstellungen: Einstellungen }) {
   const daten = useRundenDaten(runde)
   const [nurOffene, setNurOffene] = useState(false)
+  const [suche, setSuche] = useState('')
+  const suchFeld = useRef<HTMLInputElement>(null)
   if (!daten) return null
 
   const { vorgaenge, proVorgang } = daten
   const unentschieden = vorgaenge.filter((v) => !proVorgang.has(v.id))
-  const sichtbar = nurOffene ? unentschieden : vorgaenge
+  // Suche ohne Leerzeichen/Bindestriche: „ab1“ findet „HH-AB 123“
+  const suchText = normalisiereKennzeichen(suche)
+  const sichtbar = (nurOffene ? unentschieden : vorgaenge).filter((v) => !suchText || v.kennzeichen.includes(suchText))
   const gruppen = nachEbene(sichtbar, einstellungen)
+
+  // Nach einer Entscheidung im Suchergebnis: Suche leeren, bereit für das nächste Kennzeichen
+  function nachEntscheidung() {
+    if (!suchText) return
+    setSuche('')
+    suchFeld.current?.focus()
+  }
 
   return (
     <div className="mit-fusszeile">
@@ -114,6 +126,27 @@ function Laufend({ runde, einstellungen }: { runde: Runde; einstellungen: Einste
         ＋ Neues Fahrzeug erfassen
       </a>
 
+      <div className="suchleiste">
+        <input
+          ref={suchFeld}
+          type="search"
+          value={suche}
+          onChange={(e) => setSuche(e.target.value)}
+          placeholder="🔍 Kennzeichen suchen"
+          aria-label="Kennzeichen suchen"
+          autoCapitalize="characters"
+          autoCorrect="off"
+          autoComplete="off"
+          spellCheck={false}
+          enterKeyHint="search"
+        />
+        {suche && (
+          <button type="button" className="knopf klein-knopf" aria-label="Suche leeren" onClick={() => setSuche('')}>
+            ✕
+          </button>
+        )}
+      </div>
+
       <div className="knopf-reihe" style={{ marginTop: 12 }}>
         <Auswahl
           werte={['alle', 'offen'] as const}
@@ -123,11 +156,17 @@ function Laufend({ runde, einstellungen }: { runde: Runde; einstellungen: Einste
         />
       </div>
 
-      {gruppen.length === 0 && (
-        <p className="leer">
-          {nurOffene ? 'Alle Fahrzeuge sind entschieden.' : 'Noch keine Fahrzeuge erfasst.'}
-        </p>
-      )}
+      {gruppen.length === 0 &&
+        (suchText ? (
+          <Hinweis>
+            <p>Kein Fahrzeug mit „{suche.trim().toUpperCase()}“ in der Liste.</p>
+            <a className="knopf gross" href={`#/erfassen/${encodeURIComponent(suche.trim())}`}>
+              Als neues Fahrzeug erfassen
+            </a>
+          </Hinweis>
+        ) : (
+          <p className="leer">{nurOffene ? 'Alle Fahrzeuge sind entschieden.' : 'Noch keine Fahrzeuge erfasst.'}</p>
+        ))}
 
       {gruppen.map((g) => (
         <section key={g.id}>
@@ -142,6 +181,7 @@ function Laufend({ runde, einstellungen }: { runde: Runde; einstellungen: Einste
                 sichtung={proVorgang.get(v.id)}
                 runde={runde}
                 einstellungen={einstellungen}
+                nachEntscheidung={nachEntscheidung}
               />
             ))}
           </div>
@@ -176,11 +216,13 @@ function RundenFahrzeug({
   sichtung,
   runde,
   einstellungen,
+  nachEntscheidung,
 }: {
   vorgang: Vorgang
   sichtung: Sichtung | undefined
   runde: Runde
   einstellungen: Einstellungen
+  nachEntscheidung?: () => void
 }) {
   const [ebeneAendern, setEbeneAendern] = useState(false)
   const ergebnis = sichtung?.ergebnis
@@ -207,14 +249,20 @@ function RundenFahrzeug({
           <button
             type="button"
             className={`da ${ergebnis === 'noch_da' ? 'gewaehlt' : ''}`}
-            onClick={() => mitFehlermeldung(() => sichtungSetzen(runde.id, v.id, 'noch_da'))}
+            onClick={async () => {
+              await mitFehlermeldung(() => sichtungSetzen(runde.id, v.id, 'noch_da'))
+              nachEntscheidung?.()
+            }}
           >
             ✓ noch da
           </button>
           <button
             type="button"
             className={`weg ${ergebnis === 'weg' ? 'gewaehlt' : ''}`}
-            onClick={() => mitFehlermeldung(() => sichtungSetzen(runde.id, v.id, 'weg'))}
+            onClick={async () => {
+              await mitFehlermeldung(() => sichtungSetzen(runde.id, v.id, 'weg'))
+              nachEntscheidung?.()
+            }}
           >
             weg
           </button>

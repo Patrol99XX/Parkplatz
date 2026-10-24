@@ -79,6 +79,9 @@ Standard-Ebenen (in den Einstellungen änderbar): „Parkhaus Ebene 0“, „Par
    „noch da“ oder „weg“. Nicht bestätigte Fahrzeuge werden am Ende der Runde angezeigt
    und müssen entschieden werden, bevor die Runde abgeschlossen wird.
 3. Neue Fahrzeuge erfassen: Kennzeichen, Modell, Ebene, optional Foto und Kategorie.
+   Schnell-Erfassung (ca. 150 Fahrzeuge): Return im Kennzeichen-Feld speichert bzw. bestätigt
+   ein bekanntes Fahrzeug als „noch da“. Suchfeld im Rundgang filtert nach Kennzeichen.
+   Bewusst KEIN „ganze Ebene noch da“ – jedes Fahrzeug wird einzeln bestätigt.
 4. Nach Abschluss zeigt die App die Klärungsliste dieser Runde.
 5. Nach Abschluss: Knopf „Bericht per E-Mail senden“ öffnet die Mail-App (mailto, nur Text,
    keine Fotos) mit allen Fahrzeugen, die seit gestern oder länger stehen (Kalendertage),

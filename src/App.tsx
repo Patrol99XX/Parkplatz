@@ -25,7 +25,7 @@ export function App() {
       inhalt = <Rundgang abschluss={id === 'abschluss'} />
       break
     case 'erfassen':
-      inhalt = <Erfassen />
+      inhalt = <Erfassen key={id} vorschlag={id ? decodeURIComponent(id) : ''} />
       break
     case 'fahrzeug':
       inhalt = <Fahrzeug key={id} id={id} />

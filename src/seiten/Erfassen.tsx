@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/db'
 import { ebenenName, useAktiveRunde, useEinstellungen, useModellVorschlaege } from '../db/hooks'
@@ -28,7 +28,8 @@ function letzteEbeneMerken(id: string) {
   }
 }
 
-export function Erfassen() {
+/** vorschlag: Kennzeichen aus der Suche im Rundgang („nicht gefunden → neu erfassen“) */
+export function Erfassen({ vorschlag = '' }: { vorschlag?: string }) {
   const runde = useAktiveRunde()
   if (runde === undefined) return null
   if (runde === null) {
@@ -42,14 +43,15 @@ export function Erfassen() {
       </>
     )
   }
-  return <Formular runde={runde} />
+  return <Formular runde={runde} vorschlag={vorschlag} />
 }
 
-function Formular({ runde }: { runde: Runde }) {
+function Formular({ runde, vorschlag }: { runde: Runde; vorschlag: string }) {
   const einstellungen = useEinstellungen()
   const modelle = useModellVorschlaege()
 
-  const [kennzeichen, setKennzeichen] = useState('')
+  const [kennzeichen, setKennzeichen] = useState(vorschlag)
+  const kennzeichenFeld = useRef<HTMLInputElement>(null)
   const [modell, setModell] = useState('')
   const [ebeneId, setEbeneId] = useState<string | null>(letzteEbeneLesen)
   const [kategorie, setKategorie] = useState<Kategorie>('unbekannt')
@@ -92,10 +94,13 @@ function Formular({ runde }: { runde: Runde }) {
     setFotos([])
     setMeldung(text)
     window.scrollTo(0, 0)
+    kennzeichenFeld.current?.focus()
   }
 
-  async function speichern(weiter: boolean) {
-    if (!kannSpeichern || !gueltigeEbene) return
+  /** schonGeprueft: Aufruf aus beiReturn, das die Kennzeichen-Prüfung schon frisch gemacht hat */
+  async function speichern(weiter: boolean, schonGeprueft = false) {
+    if (!gueltigeEbene || speichert) return
+    if (!schonGeprueft && !kannSpeichern) return
     setSpeichert(true)
     const v = await mitFehlermeldung(() =>
       fahrzeugErfassen(runde.id, {
@@ -114,6 +119,38 @@ function Formular({ runde }: { runde: Runde }) {
     else geheZu('rundgang')
   }
 
+  /**
+   * Return-Taste im Kennzeichen-Feld = Schnell-Erfassung: neues Fahrzeug speichern bzw.
+   * bekanntes als „noch da“ bestätigen. Die Prüfung läuft hier frisch gegen die Datenbank,
+   * weil die Hinweise oben beim schnellen Tippen noch den alten Stand zeigen können.
+   */
+  async function beiReturn() {
+    if (norm.length < 2 || speichert) return
+    const vorgaenge = await db.vorgaenge.where('kennzeichen').equals(norm).toArray()
+    const offenJetzt = vorgaenge.find((v) => v.offen)
+    if (offenJetzt) {
+      const s = await db.sichtungen
+        .where('rundeId')
+        .equals(runde.id)
+        .filter((x) => x.vorgangId === offenJetzt.id)
+        .first()
+      if (s && s.ergebnis !== 'weg') {
+        zuruecksetzen(`${offenJetzt.kennzeichenAnzeige} war in dieser Kontrolle schon erfasst.`)
+        return
+      }
+      await mitFehlermeldung(() => sichtungSetzen(runde.id, offenJetzt.id, 'noch_da'))
+      zuruecksetzen(`${offenJetzt.kennzeichenAnzeige} als „noch da“ bestätigt.`)
+      return
+    }
+    // In dieser Kontrolle als „weg“ markiert → Hinweis mit „Doch noch da“ steht oben, nichts automatisch tun
+    if (vorgaenge.some((v) => v.beendetInRundeId === runde.id)) return
+    if (!gueltigeEbene) {
+      alert('Bitte zuerst eine Ebene wählen.')
+      return
+    }
+    await speichern(true, true)
+  }
+
   async function nochDaBestaetigen() {
     if (!offen) return
     await mitFehlermeldung(() => sichtungSetzen(runde.id, offen.id, 'noch_da'))
@@ -125,9 +162,16 @@ function Formular({ runde }: { runde: Runde }) {
       <Kopf titel="Fahrzeug erfassen" zurueck="rundgang" />
       {meldung && <Hinweis>✓ {meldung}</Hinweis>}
 
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          beiReturn()
+        }}
+      >
       <label className="feld">
         <span>Kennzeichen</span>
         <input
+          ref={kennzeichenFeld}
           className="kennzeichen"
           value={kennzeichen}
           onChange={(e) => {
@@ -139,9 +183,15 @@ function Formular({ runde }: { runde: Runde }) {
           autoCorrect="off"
           autoComplete="off"
           spellCheck={false}
-          enterKeyHint="next"
+          enterKeyHint="go"
+          autoFocus
         />
       </label>
+      </form>
+      <p className="klein" style={{ marginTop: -8 }}>
+        Schnell: Kennzeichen tippen + Return = speichern (Ebene bleibt gewählt). Feld antippen →
+        „Text scannen“ liest das Kennzeichen mit der Kamera.
+      </p>
 
       {offen && (
         <Hinweis art="warnung">
