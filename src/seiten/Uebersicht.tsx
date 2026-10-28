@@ -39,7 +39,7 @@ export function Uebersicht() {
           <h1>Moin!</h1>
           <p>{jetzt.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })}</p>
         </div>
-        <HamburgSkyline className="hamburg-silhouette" wasser="var(--akzent)" />
+        <HamburgSkyline className="hamburg-silhouette" ohneWasser />
       </header>
 
       {daten.gesamt > 0 && sicherungFaellig(einstellungen.letzteSicherungAm, jetzt) && (

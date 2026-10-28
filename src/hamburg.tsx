@@ -4,9 +4,10 @@
 // Die Farbe kommt von außen (currentColor), so taugt dieselbe Zeichnung als heller
 // Hintergrund und als weiße Silhouette auf Schwarz.
 
-export function HamburgSkyline({ className, wasser }: { className?: string; wasser?: string }) {
+export function HamburgSkyline({ className, ohneWasser }: { className?: string; ohneWasser?: boolean }) {
   return (
-    <svg className={className} viewBox="0 0 400 100" preserveAspectRatio="xMidYMax meet" aria-hidden fill="currentColor">
+    // Ohne Wasser endet die Zeichnung bei y = 90, damit die Gebäude auf der Kante stehen
+    <svg className={className} viewBox={ohneWasser ? '0 0 400 90' : '0 0 400 100'} preserveAspectRatio="xMidYMax meet" aria-hidden fill="currentColor">
       {/* Hafenkräne */}
       <rect x="18" y="30" width="4" height="60" />
       <rect x="6" y="28" width="62" height="3" />
@@ -43,8 +44,8 @@ export function HamburgSkyline({ className, wasser }: { className?: string; wass
       <rect x="378" y="62" width="10" height="20" />
       <rect x="381" y="56" width="4" height="7" />
 
-      {/* Elbe */}
-      <rect x="0" y="90" width="400" height="10" fill={wasser ?? 'currentColor'} />
+      {/* Elbe (im Kopf der Übersicht weggelassen) */}
+      {!ohneWasser && <rect x="0" y="90" width="400" height="10" />}
     </svg>
   )
 }
