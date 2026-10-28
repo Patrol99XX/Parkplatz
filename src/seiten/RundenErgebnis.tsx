@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/db'
-import { ebenenName, useEinstellungen } from '../db/hooks'
+import { ortText, useEinstellungen } from '../db/hooks'
 import { ERGEBNIS_TEXT, RUNDEN_TYP_TEXT, type SichtungsErgebnis } from '../db/typen'
 import { formatDatum, formatZeit } from '../logik/zeit'
 import { Kopf } from '../komponenten'
@@ -104,7 +104,7 @@ export function RundenErgebnis({ id }: { id: string }) {
                   <a href={`#/fahrzeug/${vorgang!.id}`} className="kennzeichen">
                     {vorgang!.kennzeichenAnzeige}
                   </a>
-                  <span className="klein">{ebenenName(einstellungen, vorgang!.ebeneId)}</span>
+                  <span className="klein">{ortText(einstellungen, vorgang!)}</span>
                 </li>
               ))}
             </ul>

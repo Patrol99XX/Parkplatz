@@ -2,10 +2,11 @@ import { useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/db'
 import { ebenenName, useAktiveRunde, useEinstellungen, useModellVorschlaege } from '../db/hooks'
-import { fahrzeugErfassen, sichtungSetzen, wegRueckgaengig } from '../db/aktionen'
+import { fahrzeugErfassen, sichtungSetzen, vorgangAendern, wegRueckgaengig } from '../db/aktionen'
 import { KATEGORIE_TEXT, type Kategorie, type Runde } from '../db/typen'
 import { normalisiereKennzeichen, pruefeKennzeichen } from '../logik/kennzeichen'
 import { formatDatum, standdauerText } from '../logik/zeit'
+import { naechsterPlatz, platzEinlesen, platzText } from '../logik/stellplatz'
 import { Auswahl, BlobBild, FotoAufnahme, Hinweis, Kopf, mitFehlermeldung } from '../komponenten'
 import { geheZu } from '../navigation'
 
@@ -54,6 +55,7 @@ function Formular({ runde, vorschlag }: { runde: Runde; vorschlag: string }) {
   const kennzeichenFeld = useRef<HTMLInputElement>(null)
   const [modell, setModell] = useState('')
   const [ebeneId, setEbeneId] = useState<string | null>(letzteEbeneLesen)
+  const [platz, setPlatz] = useState('')
   const [kategorie, setKategorie] = useState<Kategorie>('unbekannt')
   const [notiz, setNotiz] = useState('')
   const [fotos, setFotos] = useState<Blob[]>([])
@@ -79,9 +81,23 @@ function Formular({ runde, vorschlag }: { runde: Runde; vorschlag: string }) {
     return { ...b, sichtungDieseRunde: sichtung, wegDieseRunde }
   }, [norm, runde.id])
 
-  if (!einstellungen) return null
-  const aktiveEbenen = einstellungen.ebenen.filter((e) => e.aktiv)
+  const aktiveEbenen = einstellungen?.ebenen.filter((e) => e.aktiv) ?? []
   const gueltigeEbene = aktiveEbenen.some((e) => e.id === ebeneId) ? ebeneId : null
+  const bereich = aktiveEbenen.find((e) => e.id === gueltigeEbene)?.stellplaetze ?? null
+  const platzEingabe = bereich ? platzEinlesen(platz, bereich) : { nr: null }
+  const platzNr = 'nr' in platzEingabe ? platzEingabe.nr : null
+
+  // Steht laut App schon ein anderes Fahrzeug auf diesem Platz? Dann ist es vermutlich weg.
+  const belegtVon = useLiveQuery(async () => {
+    if (!gueltigeEbene || platzNr === null) return null
+    return (
+      (await db.vorgaenge
+        .filter((v) => v.offen && v.ebeneId === gueltigeEbene && v.stellplatz === platzNr && v.kennzeichen !== norm)
+        .first()) ?? null
+    )
+  }, [gueltigeEbene, platzNr, norm])
+
+  if (!einstellungen) return null
   const offen = befund?.offenerVorgang ?? null
   const wegDieseRunde = befund?.wegDieseRunde
   const kannSpeichern = norm.length >= 2 && gueltigeEbene !== null && !offen && !wegDieseRunde && !speichert
@@ -97,16 +113,34 @@ function Formular({ runde, vorschlag }: { runde: Runde; vorschlag: string }) {
     kennzeichenFeld.current?.focus()
   }
 
+  /** Platz-Eingabe prüfen; bei Fehler Meldung und undefined */
+  function platzPruefen(): number | null | undefined {
+    if ('fehler' in platzEingabe) {
+      alert(platzEingabe.fehler)
+      return undefined
+    }
+    return platzEingabe.nr
+  }
+
+  /** Nach dem Speichern: nächsten Platz vorschlagen (falls eingestellt), sonst Feld leeren */
+  function platzWeiter(nr: number | null) {
+    const weiter = nr !== null && bereich && einstellungen!.platzHochzaehlen !== false ? naechsterPlatz(nr, bereich) : null
+    setPlatz(weiter !== null ? String(weiter) : '')
+  }
+
   /** schonGeprueft: Aufruf aus beiReturn, das die Kennzeichen-Prüfung schon frisch gemacht hat */
   async function speichern(weiter: boolean, schonGeprueft = false) {
     if (!gueltigeEbene || speichert) return
     if (!schonGeprueft && !kannSpeichern) return
+    const nr = platzPruefen()
+    if (nr === undefined) return
     setSpeichert(true)
     const v = await mitFehlermeldung(() =>
       fahrzeugErfassen(runde.id, {
         kennzeichenAnzeige: kennzeichen,
         modell,
         ebeneId: gueltigeEbene,
+        stellplatz: nr,
         kategorie,
         notiz,
         fotos,
@@ -115,7 +149,9 @@ function Formular({ runde, vorschlag }: { runde: Runde; vorschlag: string }) {
     setSpeichert(false)
     if (!v) return
     letzteEbeneMerken(gueltigeEbene)
-    if (weiter) zuruecksetzen(`${v.kennzeichenAnzeige} gespeichert.`)
+    platzWeiter(nr)
+    const wo = nr !== null && bereich ? ` auf ${platzText(bereich, nr)}` : ''
+    if (weiter) zuruecksetzen(`${v.kennzeichenAnzeige}${wo} gespeichert.`)
     else geheZu('rundgang')
   }
 
@@ -129,6 +165,13 @@ function Formular({ runde, vorschlag }: { runde: Runde; vorschlag: string }) {
     const vorgaenge = await db.vorgaenge.where('kennzeichen').equals(norm).toArray()
     const offenJetzt = vorgaenge.find((v) => v.offen)
     if (offenJetzt) {
+      // Platz angegeben (z. B. beim Nachtragen der Nummern)? Dann steht das Fahrzeug genau hier.
+      const nr = platzPruefen()
+      if (nr === undefined) return
+      if (nr !== null && gueltigeEbene && (offenJetzt.stellplatz !== nr || offenJetzt.ebeneId !== gueltigeEbene)) {
+        await mitFehlermeldung(() => vorgangAendern(offenJetzt.id, { ebeneId: gueltigeEbene, stellplatz: nr }))
+      }
+      platzWeiter(nr)
       const s = await db.sichtungen
         .where('rundeId')
         .equals(runde.id)
@@ -168,6 +211,7 @@ function Formular({ runde, vorschlag }: { runde: Runde; vorschlag: string }) {
           beiReturn()
         }}
       >
+      <div className="kz-platz">
       <label className="feld">
         <span>Kennzeichen</span>
         <input
@@ -187,10 +231,49 @@ function Formular({ runde, vorschlag }: { runde: Runde; vorschlag: string }) {
           autoFocus
         />
       </label>
+      {bereich && (
+        <label className="feld">
+          <span>Platz</span>
+          <input
+            value={platz}
+            onChange={(e) => setPlatz(e.target.value)}
+            inputMode="decimal"
+            placeholder={platzText(bereich, bereich.von)}
+            autoComplete="off"
+            enterKeyHint="go"
+            aria-label={`Stellplatz ${platzText(bereich, bereich.von)} bis ${platzText(bereich, bereich.bis)}`}
+          />
+        </label>
+      )}
+      </div>
+      {/* unsichtbarer Absende-Knopf, damit Return auch im Platz-Feld speichert */}
+      <button type="submit" hidden />
       </form>
-      <p className="klein" style={{ marginTop: -8 }}>
-        Schnell: Kennzeichen tippen + Return = speichern (Ebene bleibt gewählt). Feld antippen →
-        „Text scannen“ liest das Kennzeichen mit der Kamera.
+      {bereich && platzNr !== null && (
+        <p className="klein" style={{ marginTop: -8 }}>
+          Platz <span className="platz-marke">{platzText(bereich, platzNr)}</span>
+        </p>
+      )}
+      {'fehler' in platzEingabe && <Hinweis art="fehler">{platzEingabe.fehler}</Hinweis>}
+      {belegtVon && bereich && platzNr !== null && (
+        <Hinweis art="warnung">
+          <p>
+            Platz {platzText(bereich, platzNr)} ist laut App noch mit <strong>{belegtVon.kennzeichenAnzeige}</strong>{' '}
+            belegt.
+          </p>
+          <button
+            type="button"
+            className="knopf zweitrangig"
+            onClick={() => mitFehlermeldung(() => sichtungSetzen(runde.id, belegtVon.id, 'weg'))}
+          >
+            {belegtVon.kennzeichenAnzeige} ist weg
+          </button>
+        </Hinweis>
+      )}
+      <p className="klein" style={{ marginTop: 0 }}>
+        Schnell: Kennzeichen tippen + Return = speichern (Ebene bleibt gewählt
+        {bereich ? ', Platz zählt hoch' : ''}). Feld antippen → „Text scannen“ liest das Kennzeichen mit
+        der Kamera.
       </p>
 
       {offen && (
@@ -258,7 +341,10 @@ function Formular({ runde, vorschlag }: { runde: Runde; vorschlag: string }) {
             <Auswahl
               werte={aktiveEbenen.map((e) => e.id)}
               wert={gueltigeEbene}
-              beiAuswahl={setEbeneId}
+              beiAuswahl={(id) => {
+                setEbeneId(id)
+                setPlatz('')
+              }}
               text={(id) => ebenenName(einstellungen, id)}
             />
           </div>

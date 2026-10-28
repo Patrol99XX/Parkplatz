@@ -33,6 +33,8 @@ export interface Vorgang extends Zeitstempel {
   beendetInRundeId: string | null
   offen: boolean
   notiz: string
+  /** Stellplatznummer innerhalb der Ebene (5 = „0.05“), nur auf nummerierten Ebenen. Fehlt bei älteren Daten. */
+  stellplatz?: number | null
 }
 
 export type SichtungsErgebnis = 'neu' | 'noch_da' | 'weg'
@@ -87,10 +89,19 @@ export interface Foto extends Zeitstempel {
   aufgenommenAm: string
 }
 
+/** Nummerierte Stellplätze einer Ebene, z. B. Präfix „0.“, 1–20 → „0.01“–„0.20“ */
+export interface StellplatzBereich {
+  praefix: string
+  von: number
+  bis: number
+}
+
 export interface Ebene {
   id: string
   name: string
   aktiv: boolean
+  /** null/fehlt = Ebene ohne nummerierte Stellplätze (z. B. Außenflächen) */
+  stellplaetze?: StellplatzBereich | null
 }
 
 export interface Einstellungen extends Zeitstempel {
@@ -101,6 +112,8 @@ export interface Einstellungen extends Zeitstempel {
   letzteSicherungAm: string | null
   /** E-Mail-Adresse für den Bericht nach einer Kontrolle. Optional, weil ältere Datenbanken das Feld noch nicht haben. */
   berichtEmpfaenger?: string
+  /** Platznummer beim Erfassen automatisch um eins hochzählen (Standard: an) */
+  platzHochzaehlen?: boolean
 }
 
 export const RUNDEN_TYP_TEXT: Record<RundenTyp, string> = {

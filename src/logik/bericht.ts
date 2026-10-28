@@ -9,6 +9,7 @@ import {
   type Vorgang,
 } from '../db/typen'
 import { formatDatum, formatDatumZeit, formatZeit, kalendertageZwischen, standdauerText } from './zeit'
+import { nachPlatz, platzText } from './stellplatz'
 
 /** In den Bericht kommen nur Fahrzeuge, die seit gestern oder länger stehen. */
 export const BERICHT_AB_TAGEN = 1
@@ -54,13 +55,15 @@ export function berichtErstellen(d: BerichtDaten): { betreff: string; text: stri
     const ids = d.ebenen.map((e) => e.id)
     for (const v of lange) if (!ids.includes(v.ebeneId)) ids.push(v.ebeneId)
     for (const id of ids) {
-      const hier = lange.filter((v) => v.ebeneId === id)
+      const hier = lange.filter((v) => v.ebeneId === id).sort(nachPlatz)
       if (hier.length === 0) continue
+      const ebene = d.ebenen.find((e) => e.id === id)
       zeilen.push('')
-      zeilen.push((d.ebenen.find((e) => e.id === id)?.name ?? 'Unbekannte Ebene').toUpperCase())
+      zeilen.push((ebene?.name ?? 'Unbekannte Ebene').toUpperCase())
       for (const v of hier) {
         const teile = [
           v.kennzeichenAnzeige,
+          ebene?.stellplaetze && v.stellplatz != null ? `Platz ${platzText(ebene.stellplaetze, v.stellplatz)}` : '',
           v.modell,
           standdauerText(v.ersterfasstAm, jetzt),
           v.kategorie !== 'unbekannt' ? KATEGORIE_TEXT[v.kategorie] : '',

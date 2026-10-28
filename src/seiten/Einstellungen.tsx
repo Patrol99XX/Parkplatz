@@ -6,9 +6,13 @@ import {
   ebeneAktivSetzen,
   ebeneHinzufuegen,
   ebeneLoeschen,
+  ebeneStellplaetzeSetzen,
   ebeneUmbenennen,
   ebeneVerschieben,
+  platzHochzaehlenSetzen,
 } from '../db/aktionen'
+import type { Ebene } from '../db/typen'
+import { platzText } from '../logik/stellplatz'
 
 export function Einstellungen() {
   const einstellungen = useEinstellungen()
@@ -78,6 +82,7 @@ export function Einstellungen() {
                   Löschen
                 </button>
               </div>
+              <Stellplaetze ebene={e} />
             </li>
           ))}
         </ul>
@@ -95,6 +100,22 @@ export function Einstellungen() {
             Hinzufügen
           </button>
         </form>
+      </section>
+
+      <section className="karte">
+        <h2>Erfassen</h2>
+        <label className="schalter">
+          <input
+            type="checkbox"
+            checked={einstellungen.platzHochzaehlen !== false}
+            onChange={(ev) => platzHochzaehlenSetzen(ev.target.checked)}
+          />
+          <span>
+            Platznummer automatisch hochzählen
+            <br />
+            <span className="klein">Nach dem Speichern von 0.05 ist 0.06 vorgeschlagen.</span>
+          </span>
+        </label>
       </section>
 
       <section className="karte">
@@ -119,5 +140,75 @@ export function Einstellungen() {
         />
       </section>
     </>
+  )
+}
+
+/** Nummernbereich einer Ebene, z. B. Präfix „0.“, Plätze 1 bis 20 → 0.01–0.20 */
+function Stellplaetze({ ebene }: { ebene: Ebene }) {
+  const b = ebene.stellplaetze
+  if (!b) {
+    return (
+      <button
+        type="button"
+        className="text-knopf"
+        onClick={() => ebeneStellplaetzeSetzen(ebene.id, { praefix: '', von: 1, bis: 20 })}
+      >
+        Stellplätze nummerieren
+      </button>
+    )
+  }
+  const zahl = (wert: string, alt: number) => {
+    const n = Number(wert)
+    return Number.isInteger(n) && n >= 0 ? n : alt
+  }
+  return (
+    <div className="stellplatz-bereich">
+      <span className="klein">
+        Stellplätze {platzText(b, b.von)} bis {platzText(b, b.bis)}
+      </span>
+      <div className="zeile">
+        <label>
+          <span className="klein">Präfix</span>
+          <input
+            defaultValue={b.praefix}
+            key={`p-${b.praefix}`}
+            onBlur={(ev) => ev.target.value !== b.praefix && ebeneStellplaetzeSetzen(ebene.id, { ...b, praefix: ev.target.value.trim() })}
+          />
+        </label>
+        <label>
+          <span className="klein">von</span>
+          <input
+            inputMode="numeric"
+            defaultValue={b.von}
+            key={`v-${b.von}`}
+            onBlur={(ev) => {
+              const von = zahl(ev.target.value, b.von)
+              if (von !== b.von && von <= b.bis) ebeneStellplaetzeSetzen(ebene.id, { ...b, von })
+              else ev.target.value = String(b.von)
+            }}
+          />
+        </label>
+        <label>
+          <span className="klein">bis</span>
+          <input
+            inputMode="numeric"
+            defaultValue={b.bis}
+            key={`b-${b.bis}`}
+            onBlur={(ev) => {
+              const bis = zahl(ev.target.value, b.bis)
+              if (bis !== b.bis && bis >= b.von) ebeneStellplaetzeSetzen(ebene.id, { ...b, bis })
+              else ev.target.value = String(b.bis)
+            }}
+          />
+        </label>
+      </div>
+      <button
+        type="button"
+        className="text-knopf"
+        onClick={() => confirm(`Nummerierung für „${ebene.name}“ entfernen?`) && ebeneStellplaetzeSetzen(ebene.id, null)}
+      >
+        Keine Nummerierung
+      </button>
+    </div>
   )
 }

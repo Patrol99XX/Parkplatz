@@ -82,6 +82,10 @@ Standard-Ebenen (in den Einstellungen änderbar): „Parkhaus Ebene 0“, „Par
    Schnell-Erfassung (ca. 150 Fahrzeuge): Return im Kennzeichen-Feld speichert bzw. bestätigt
    ein bekanntes Fahrzeug als „noch da“. Suchfeld im Rundgang filtert nach Kennzeichen.
    Bewusst KEIN „ganze Ebene noch da“ – jedes Fahrzeug wird einzeln bestätigt.
+   Stellplätze: Parkhaus Ebene 0 = 0.01–0.20, Ebene −1 = -1.01–-1.44 (Präfix + Bereich je Ebene
+   in den Einstellungen). Gespeichert wird nur die Nummer (Vorgang.stellplatz), getippt wird
+   „5“, angezeigt „0.05“. Platz zählt beim Erfassen hoch (abschaltbar). Listen sortieren je
+   Ebene nach Platz (= Laufweg). Hinweis bei Doppelbelegung eines Platzes.
 4. Nach Abschluss zeigt die App die Klärungsliste dieser Runde.
 5. Nach Abschluss: Knopf „Bericht per E-Mail senden“ öffnet die Mail-App (mailto, nur Text,
    keine Fotos) mit allen Fahrzeugen, die seit gestern oder länger stehen (Kalendertage),

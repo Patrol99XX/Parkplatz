@@ -83,6 +83,27 @@ describe('berichtErstellen', () => {
     )
   })
 
+  it('mit Stellplatz, innerhalb der Ebene nach Platz sortiert', () => {
+    const { text } = berichtErstellen({
+      runde,
+      zahlen: { neu: 0, noch_da: 2, weg: 0 },
+      offene: [
+        vorgang('ZWEITER', t(20, 8), { stellplatz: 12 }),
+        vorgang('ERSTER', t(22, 8), { stellplatz: 5 }),
+      ],
+      gesehen: new Map(),
+      ebenen: [{ id: 'e1', name: 'Parkhaus Ebene 0', aktiv: true, stellplaetze: { praefix: '0.', von: 1, bis: 20 } }],
+      jetzt,
+    })
+    expect(text).toContain(
+      [
+        'PARKHAUS EBENE 0',
+        '• ERSTER · Platz 0.05 · seit 2 Tagen (Do., 22.10.) · 0× gesehen',
+        '• ZWEITER · Platz 0.12 · seit 4 Tagen (Di., 20.10.) · 0× gesehen',
+      ].join('\n'),
+    )
+  })
+
   it('ohne lange stehende Fahrzeuge', () => {
     const { betreff, text } = berichtErstellen({
       runde,

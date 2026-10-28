@@ -1,7 +1,7 @@
 // Alle schreibenden Datenbankzugriffe an einer Stelle. Zusammengehörige Änderungen
 // laufen in einer Transaktion: Entweder wird alles gespeichert oder nichts.
 import { db } from './db'
-import type { Einstellungen, Kategorie, Runde, RundenTyp, SichtungsErgebnis, Vorgang } from './typen'
+import type { Einstellungen, Kategorie, Runde, StellplatzBereich, RundenTyp, SichtungsErgebnis, Vorgang } from './typen'
 import { jetztIso, neueId } from '../logik/uuid'
 import { normalisiereKennzeichen } from '../logik/kennzeichen'
 
@@ -54,6 +54,19 @@ export async function ebeneLoeschen(id: string): Promise<boolean> {
     e.ebenen = e.ebenen.filter((x) => x.id !== id)
   })
   return true
+}
+
+export async function ebeneStellplaetzeSetzen(id: string, bereich: StellplatzBereich | null) {
+  await einstellungenAendern((e) => {
+    const ebene = e.ebenen.find((x) => x.id === id)
+    if (ebene) ebene.stellplaetze = bereich
+  })
+}
+
+export async function platzHochzaehlenSetzen(an: boolean) {
+  await einstellungenAendern((e) => {
+    e.platzHochzaehlen = an
+  })
 }
 
 export async function berichtEmpfaengerSetzen(adresse: string) {
@@ -207,6 +220,7 @@ export interface NeuesFahrzeug {
   kennzeichenAnzeige: string
   modell: string
   ebeneId: string
+  stellplatz: number | null
   kategorie: Kategorie
   notiz: string
   fotos: Blob[]
@@ -222,6 +236,7 @@ export async function fahrzeugErfassen(rundeId: string, f: NeuesFahrzeug): Promi
     kennzeichenAnzeige: f.kennzeichenAnzeige.trim().toUpperCase(),
     modell: f.modell.trim(),
     ebeneId: f.ebeneId,
+    stellplatz: f.stellplatz,
     kategorie: f.kategorie,
     fotoIds,
     ersterfasstAm: jetzt,
@@ -266,12 +281,18 @@ export async function fahrzeugErfassen(rundeId: string, f: NeuesFahrzeug): Promi
 
 export async function vorgangAendern(
   id: string,
-  aenderung: Partial<Pick<Vorgang, 'modell' | 'ebeneId' | 'kategorie' | 'notiz' | 'kennzeichenAnzeige'>>,
+  aenderung: Partial<
+    Pick<Vorgang, 'modell' | 'ebeneId' | 'stellplatz' | 'kategorie' | 'notiz' | 'kennzeichenAnzeige'>
+  >,
 ) {
   await db.transaction('rw', db.vorgaenge, async () => {
     const v = await db.vorgaenge.get(id)
     if (!v) return
     const neu: Partial<Vorgang> = { ...aenderung, geaendertAm: jetztIso() }
+    // Andere Ebene ohne neue Platzangabe → alter Platz gilt nicht mehr
+    if (aenderung.ebeneId !== undefined && aenderung.ebeneId !== v.ebeneId && aenderung.stellplatz === undefined) {
+      neu.stellplatz = null
+    }
     if (aenderung.kennzeichenAnzeige !== undefined) {
       neu.kennzeichenAnzeige = aenderung.kennzeichenAnzeige.trim().toUpperCase()
       neu.kennzeichen = normalisiereKennzeichen(aenderung.kennzeichenAnzeige)

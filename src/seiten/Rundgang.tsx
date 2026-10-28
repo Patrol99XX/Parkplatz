@@ -1,11 +1,12 @@
 import { useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/db'
-import { ebenenName, useAktiveRunde, useEinstellungen } from '../db/hooks'
+import { ebenenName, ortText, platzVon, useAktiveRunde, useEinstellungen } from '../db/hooks'
 import { rundeAbschliessen, rundeStarten, rundeVerwerfen, sichtungSetzen, vorgangAendern, wegRueckgaengig } from '../db/aktionen'
 import { RUNDEN_TYP_TEXT, type Einstellungen, type Runde, type RundenTyp, type Sichtung, type Vorgang } from '../db/typen'
 import { formatZeit, standdauerText, vorgeschlagenerRundenTyp } from '../logik/zeit'
 import { normalisiereKennzeichen } from '../logik/kennzeichen'
+import { nachPlatz, platzEinlesen, platzText } from '../logik/stellplatz'
 import { Auswahl, FotoAusDb, Hinweis, Kopf, mitFehlermeldung } from '../komponenten'
 import { geheZu } from '../navigation'
 
@@ -85,12 +86,19 @@ function useRundenDaten(runde: Runde) {
   }, [runde.id])
 }
 
-/** Nach Ebenen gruppiert, in der Reihenfolge der Einstellungen; unbekannte Ebenen am Ende. */
+/**
+ * Nach Ebenen gruppiert, in der Reihenfolge der Einstellungen; unbekannte Ebenen am Ende.
+ * Innerhalb der Ebene nach Stellplatz – so folgt die Liste dem Laufweg im Parkhaus.
+ */
 function nachEbene(vorgaenge: Vorgang[], einstellungen: Einstellungen) {
   const ids = einstellungen.ebenen.map((e) => e.id)
   for (const v of vorgaenge) if (!ids.includes(v.ebeneId)) ids.push(v.ebeneId)
   return ids
-    .map((id) => ({ id, name: ebenenName(einstellungen, id), vorgaenge: vorgaenge.filter((v) => v.ebeneId === id) }))
+    .map((id) => ({
+      id,
+      name: ebenenName(einstellungen, id),
+      vorgaenge: vorgaenge.filter((v) => v.ebeneId === id).sort(nachPlatz),
+    }))
     .filter((g) => g.vorgaenge.length > 0)
 }
 
@@ -103,9 +111,11 @@ function Laufend({ runde, einstellungen }: { runde: Runde; einstellungen: Einste
 
   const { vorgaenge, proVorgang } = daten
   const unentschieden = vorgaenge.filter((v) => !proVorgang.has(v.id))
-  // Suche ohne Leerzeichen/Bindestriche: „ab1“ findet „HH-AB 123“
+  // Suche ohne Leerzeichen/Bindestriche: „ab1“ findet „HH-AB 123“, „0.05“ findet den Platz
   const suchText = normalisiereKennzeichen(suche)
-  const sichtbar = (nurOffene ? unentschieden : vorgaenge).filter((v) => !suchText || v.kennzeichen.includes(suchText))
+  const passt = (v: Vorgang) =>
+    v.kennzeichen.includes(suchText) || normalisiereKennzeichen(platzVon(einstellungen, v) ?? '').includes(suchText)
+  const sichtbar = (nurOffene ? unentschieden : vorgaenge).filter((v) => !suchText || passt(v))
   const gruppen = nachEbene(sichtbar, einstellungen)
 
   // Nach einer Entscheidung im Suchergebnis: Suche leeren, bereit für das nächste Kennzeichen
@@ -132,7 +142,7 @@ function Laufend({ runde, einstellungen }: { runde: Runde; einstellungen: Einste
           type="search"
           value={suche}
           onChange={(e) => setSuche(e.target.value)}
-          placeholder="🔍 Kennzeichen suchen"
+          placeholder="🔍 Kennzeichen oder Platz"
           aria-label="Kennzeichen suchen"
           autoCapitalize="characters"
           autoCorrect="off"
@@ -224,9 +234,9 @@ function RundenFahrzeug({
   einstellungen: Einstellungen
   nachEntscheidung?: () => void
 }) {
-  const [ebeneAendern, setEbeneAendern] = useState(false)
+  const [ortAendern, setOrtAendern] = useState(false)
   const ergebnis = sichtung?.ergebnis
-  const aktiveEbenen = einstellungen.ebenen.filter((e) => e.aktiv || e.id === v.ebeneId)
+  const platz = platzVon(einstellungen, v)
 
   return (
     <div className={`rund-fahrzeug ${ergebnis ?? ''}`}>
@@ -240,6 +250,7 @@ function RundenFahrzeug({
             {ergebnis === 'neu' && <span className="marke neu">neu</span>}
           </div>
           <div className="unterzeile">
+            {platz && <span className="platz-marke">{platz} · </span>}
             {[v.modell, standdauerText(v.ersterfasstAm, new Date())].filter(Boolean).join(' · ')}
           </div>
         </div>
@@ -269,28 +280,82 @@ function RundenFahrzeug({
         </div>
       )}
       {ergebnis !== 'weg' &&
-        (ebeneAendern ? (
-          <select
-            className="ebene-wechsel"
-            value={v.ebeneId}
-            aria-label="Ebene"
-            onChange={async (e) => {
-              await mitFehlermeldung(() => vorgangAendern(v.id, { ebeneId: e.target.value }))
-              setEbeneAendern(false)
-            }}
-          >
-            {aktiveEbenen.map((e) => (
-              <option key={e.id} value={e.id}>
-                {e.name}
-              </option>
-            ))}
-          </select>
+        (ortAendern ? (
+          <OrtAendern vorgang={v} einstellungen={einstellungen} fertig={() => setOrtAendern(false)} />
         ) : (
-          <button type="button" className="text-knopf" onClick={() => setEbeneAendern(true)}>
-            Steht woanders? Ebene ändern
+          <button type="button" className="text-knopf" onClick={() => setOrtAendern(true)}>
+            {platz ? 'Steht woanders? Ebene/Platz ändern' : 'Steht woanders? Ebene ändern / Platz eintragen'}
           </button>
         ))}
     </div>
+  )
+}
+
+/** Ebene und Stellplatz eines Fahrzeugs ändern bzw. Platz nachtragen */
+export function OrtAendern({
+  vorgang: v,
+  einstellungen,
+  fertig,
+}: {
+  vorgang: Vorgang
+  einstellungen: Einstellungen
+  fertig: () => void
+}) {
+  const [ebeneId, setEbeneId] = useState(v.ebeneId)
+  const [platz, setPlatz] = useState(v.stellplatz != null ? String(v.stellplatz) : '')
+  const ebenen = einstellungen.ebenen.filter((e) => e.aktiv || e.id === v.ebeneId)
+  const bereich = ebenen.find((e) => e.id === ebeneId)?.stellplaetze ?? null
+  const eingabe = bereich ? platzEinlesen(platz, bereich) : { nr: null }
+
+  async function uebernehmen() {
+    if ('fehler' in eingabe) return
+    await mitFehlermeldung(() => vorgangAendern(v.id, { ebeneId, stellplatz: eingabe.nr }))
+    fertig()
+  }
+
+  return (
+    <form
+      className="ebene-wechsel"
+      onSubmit={(e) => {
+        e.preventDefault()
+        uebernehmen()
+      }}
+    >
+      <select
+        value={ebeneId}
+        aria-label="Ebene"
+        onChange={(e) => {
+          setEbeneId(e.target.value)
+          setPlatz('')
+        }}
+      >
+        {ebenen.map((e) => (
+          <option key={e.id} value={e.id}>
+            {e.name}
+          </option>
+        ))}
+      </select>
+      {bereich && (
+        <input
+          value={platz}
+          onChange={(e) => setPlatz(e.target.value)}
+          inputMode="decimal"
+          placeholder={`Platz, z. B. ${platzText(bereich, bereich.von)}`}
+          aria-label="Stellplatz"
+          enterKeyHint="done"
+          style={{ marginTop: 8 }}
+        />
+      )}
+      {'fehler' in eingabe && <p className="klein">{eingabe.fehler}</p>}
+      <div className="knopf-reihe" style={{ marginTop: 8 }}>
+        <button type="submit" className="knopf" disabled={'fehler' in eingabe}>
+          Übernehmen
+        </button>
+        <button type="button" className="knopf zweitrangig" onClick={fertig}>
+          Abbrechen
+        </button>
+      </div>
+    </form>
   )
 }
 
@@ -351,7 +416,7 @@ function Abschluss({ runde, einstellungen }: { runde: Runde; einstellungen: Eins
                 <span>
                   <span className="kennzeichen">{v.kennzeichenAnzeige}</span>
                   <br />
-                  <span className="klein">{ebenenName(einstellungen, v.ebeneId)}</span>
+                  <span className="klein">{ortText(einstellungen, v)}</span>
                 </span>
                 <button
                   type="button"

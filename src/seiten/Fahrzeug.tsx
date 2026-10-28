@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/db'
-import { ebenenName, useEinstellungen, useModellVorschlaege } from '../db/hooks'
+import { ebenenName, ortText, useEinstellungen, useModellVorschlaege } from '../db/hooks'
 import { fotoHinzufuegen, fotoLoeschen, vorgangAendern, vorgangLoeschen } from '../db/aktionen'
 import { ERGEBNIS_TEXT, KATEGORIE_TEXT, RUNDEN_TYP_TEXT, type Kategorie, type Vorgang } from '../db/typen'
 import { pruefeKennzeichen } from '../logik/kennzeichen'
 import { formatDatum, formatDatumZeit, standdauerText } from '../logik/zeit'
 import { Auswahl, FotoAufnahme, FotoAusDb, FotoVollbild, Hinweis, Kopf, mitFehlermeldung } from '../komponenten'
 import { geheZu } from '../navigation'
+import { OrtAendern } from './Rundgang'
 
 const KATEGORIEN: Kategorie[] = ['unbekannt', 'kunde', 'mitarbeiter', 'fremdparker']
 
@@ -16,6 +17,7 @@ export function Fahrzeug({ id }: { id: string }) {
   const modelle = useModellVorschlaege()
   const [vollbild, setVollbild] = useState<string | null>(null)
   const [kzBearbeiten, setKzBearbeiten] = useState(false)
+  const [ortBearbeiten, setOrtBearbeiten] = useState(false)
 
   const daten = useLiveQuery(async () => {
     const vorgang = await db.vorgaenge.get(id)
@@ -41,7 +43,6 @@ export function Fahrzeug({ id }: { id: string }) {
   }
   const { vorgang: v, verlauf, befund } = daten
   const aendern = (a: Parameters<typeof vorgangAendern>[1]) => mitFehlermeldung(() => vorgangAendern(v.id, a))
-  const ebenen = einstellungen.ebenen.filter((e) => e.aktiv || e.id === v.ebeneId)
 
   return (
     <>
@@ -72,7 +73,7 @@ export function Fahrzeug({ id }: { id: string }) {
           <strong>{v.offen ? 'Auf dem Gelände' : 'Nicht mehr da'}</strong>
           <br />
           {v.offen
-            ? `${standdauerText(v.ersterfasstAm, new Date())} · ${ebenenName(einstellungen, v.ebeneId)}`
+            ? `${standdauerText(v.ersterfasstAm, new Date())} · ${ortText(einstellungen, v)}`
             : `${formatDatumZeit(v.ersterfasstAm)} bis ${v.beendetAm ? formatDatumZeit(v.beendetAm) : '–'}`}
         </p>
       </section>
@@ -135,16 +136,19 @@ export function Fahrzeug({ id }: { id: string }) {
           </datalist>
         </label>
 
-        <label className="feld">
-          <span>Ebene</span>
-          <select value={v.ebeneId} onChange={(e) => aendern({ ebeneId: e.target.value })}>
-            {ebenen.map((e) => (
-              <option key={e.id} value={e.id}>
-                {e.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="feld">
+          <span className="feld-titel">Ebene / Platz</span>
+          {ortBearbeiten ? (
+            <OrtAendern vorgang={v} einstellungen={einstellungen} fertig={() => setOrtBearbeiten(false)} />
+          ) : (
+            <div className="zeile" style={{ alignItems: 'center' }}>
+              <span style={{ flex: 1 }}>{ortText(einstellungen, v)}</span>
+              <button type="button" className="knopf klein-knopf" onClick={() => setOrtBearbeiten(true)}>
+                Ändern
+              </button>
+            </div>
+          )}
+        </div>
 
         <div className="feld">
           <span className="feld-titel">Kategorie</span>

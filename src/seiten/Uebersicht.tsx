@@ -1,9 +1,10 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/db'
-import { ebenenName, useAktiveRunde, useEinstellungen } from '../db/hooks'
+import { ebenenName, platzVon, useAktiveRunde, useEinstellungen } from '../db/hooks'
 import { KATEGORIE_TEXT, RUNDEN_TYP_TEXT, type Vorgang } from '../db/typen'
 import { formatDatum, formatZeit, standdauerText } from '../logik/zeit'
 import { sicherungFaellig } from '../logik/sicherung'
+import { nachPlatz } from '../logik/stellplatz'
 import { FotoAusDb, Hinweis, Kopf } from '../komponenten'
 
 export function Uebersicht() {
@@ -11,7 +12,7 @@ export function Uebersicht() {
   const runde = useAktiveRunde()
   const daten = useLiveQuery(async () => {
     const vorgaenge = await db.vorgaenge.filter((v) => v.offen).toArray()
-    vorgaenge.sort((a, b) => a.ersterfasstAm.localeCompare(b.ersterfasstAm))
+    vorgaenge.sort(nachPlatz) // je Ebene nach Stellplatz, ohne Platz nach Erfassungszeit
     // Wie oft wurde jedes Fahrzeug bei Kontrollen gesehen?
     const sichtungen = await db.sichtungen.where('vorgangId').anyOf(vorgaenge.map((v) => v.id)).toArray()
     const gesehen = new Map<string, number>()
@@ -70,7 +71,13 @@ export function Uebersicht() {
           {g.vorgaenge.length === 0 && <p className="leer">frei</p>}
           <div className="raster">
             {g.vorgaenge.map((v) => (
-              <FahrzeugZeile key={v.id} vorgang={v} gesehen={gesehen.get(v.id) ?? 0} jetzt={jetzt} />
+              <FahrzeugZeile
+                key={v.id}
+                vorgang={v}
+                platz={platzVon(einstellungen, v)}
+                gesehen={gesehen.get(v.id) ?? 0}
+                jetzt={jetzt}
+              />
             ))}
           </div>
         </section>
@@ -79,7 +86,17 @@ export function Uebersicht() {
   )
 }
 
-function FahrzeugZeile({ vorgang: v, gesehen, jetzt }: { vorgang: Vorgang; gesehen: number; jetzt: Date }) {
+function FahrzeugZeile({
+  vorgang: v,
+  platz,
+  gesehen,
+  jetzt,
+}: {
+  vorgang: Vorgang
+  platz: string | null
+  gesehen: number
+  jetzt: Date
+}) {
   return (
     <a className="fahrzeug" href={`#/fahrzeug/${v.id}`}>
       <div className="vorschau">{v.fotoIds[0] && <FotoAusDb fotoId={v.fotoIds[0]} alt="" />}</div>
@@ -88,7 +105,13 @@ function FahrzeugZeile({ vorgang: v, gesehen, jetzt }: { vorgang: Vorgang; geseh
           <span className="kennzeichen">{v.kennzeichenAnzeige}</span>
           {v.kategorie !== 'unbekannt' && <span className="marke">{KATEGORIE_TEXT[v.kategorie]}</span>}
         </div>
-        {v.modell && <div className="unterzeile">{v.modell}</div>}
+        {(platz || v.modell) && (
+          <div className="unterzeile">
+            {platz && <span className="platz-marke">Platz {platz}</span>}
+            {platz && v.modell && ' · '}
+            {v.modell}
+          </div>
+        )}
         <div className="unterzeile">
           {standdauerText(v.ersterfasstAm, jetzt)} · {gesehen}× gesehen
         </div>

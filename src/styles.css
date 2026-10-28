@@ -616,6 +616,50 @@ label.feld > span,
   flex-wrap: wrap;
 }
 
+.stellplatz-bereich {
+  margin-top: 8px;
+}
+
+.stellplatz-bereich .zeile label {
+  flex: 1;
+  min-width: 0;
+}
+
+.schalter {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  min-height: var(--tippflaeche);
+}
+
+.schalter input {
+  width: 28px;
+  height: 28px;
+  min-height: 0;
+  flex: 0 0 28px;
+  accent-color: var(--schwarz);
+}
+
+/* Kennzeichen und Platz nebeneinander beim Erfassen */
+.kz-platz {
+  display: flex;
+  gap: 8px;
+}
+
+.kz-platz > label:first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.kz-platz > label:last-child {
+  flex: 0 0 120px;
+}
+
+.platz-marke {
+  font-weight: 700;
+  color: var(--schwarz);
+}
+
 /* ---------- Tabellen (Verlauf) ---------- */
 
 .verlauf {
