@@ -100,6 +100,9 @@ Standard-Ebenen (in den Einstellungen änderbar): „Parkhaus Ebene 0“, „Par
   aus der Werkstatt“ am neuen Vorgang. Das ist nur ein Hinweis, kein Status.
 - Kennzeichen hatte in den letzten 30 Tagen Vorgänge → Hinweis „Wiederholer“ mit Anzahl
   und Historie.
+- Sonderfall „OHNE“ (nicht zugelassene Fahrzeuge): darf beliebig oft offen sein, wird nie
+  abgeglichen (kein „bereits erfasst“, kein Wiederholer). Foto ist Pflicht: Return/Speichern
+  öffnet die Kamera, nach dem Foto wird automatisch gespeichert. Letztes Foto nicht löschbar.
 
 ### Ampel und Eskalation
 Gezählt wird in Kontrollrunden und Kalendertagen, nicht in exakten Stunden, weil die

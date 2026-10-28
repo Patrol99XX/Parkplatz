@@ -4,7 +4,7 @@ import { db } from '../db/db'
 import { ebenenName, useAktiveRunde, useEinstellungen, useModellVorschlaege } from '../db/hooks'
 import { fahrzeugErfassen, sichtungSetzen, vorgangAendern, wegRueckgaengig } from '../db/aktionen'
 import { KATEGORIE_TEXT, type Kategorie, type Runde } from '../db/typen'
-import { normalisiereKennzeichen, pruefeKennzeichen } from '../logik/kennzeichen'
+import { istOhneKennzeichen, normalisiereKennzeichen, pruefeKennzeichen } from '../logik/kennzeichen'
 import { formatDatum, standdauerText } from '../logik/zeit'
 import { naechsterPlatz, platzEinlesen, platzText } from '../logik/stellplatz'
 import { Auswahl, BlobBild, FotoAufnahme, Hinweis, Kopf, mitFehlermeldung } from '../komponenten'
@@ -61,12 +61,17 @@ function Formular({ runde, vorschlag }: { runde: Runde; vorschlag: string }) {
   const [fotos, setFotos] = useState<Blob[]>([])
   const [speichert, setSpeichert] = useState(false)
   const [meldung, setMeldung] = useState('')
+  const kamera = useRef<HTMLInputElement>(null)
+  // Bei „OHNE“ ohne Foto öffnet Speichern zuerst die Kamera; danach wird automatisch gespeichert.
+  // Hier steht, ob danach „weiter“ (nächstes Fahrzeug) oder zurück zum Rundgang.
+  const nachFotoSpeichern = useRef<boolean | null>(null)
 
   const norm = normalisiereKennzeichen(kennzeichen)
+  const ohne = istOhneKennzeichen(kennzeichen)
 
   // Bisherige Vorgänge zu diesem Kennzeichen – wird bei jeder Eingabe neu geprüft.
   const befund = useLiveQuery(async () => {
-    if (norm.length < 2) return null
+    if (norm.length < 2 || istOhneKennzeichen(norm)) return null
     const vorgaenge = await db.vorgaenge.where('kennzeichen').equals(norm).toArray()
     const b = pruefeKennzeichen(vorgaenge, new Date())
     const sichtung = b.offenerVorgang
@@ -92,7 +97,7 @@ function Formular({ runde, vorschlag }: { runde: Runde; vorschlag: string }) {
     if (!gueltigeEbene || platzNr === null) return null
     return (
       (await db.vorgaenge
-        .filter((v) => v.offen && v.ebeneId === gueltigeEbene && v.stellplatz === platzNr && v.kennzeichen !== norm)
+        .filter((v) => v.offen && v.ebeneId === gueltigeEbene && v.stellplatz === platzNr && (istOhneKennzeichen(norm) || v.kennzeichen !== norm))
         .first()) ?? null
     )
   }, [gueltigeEbene, platzNr, norm])
@@ -128,8 +133,35 @@ function Formular({ runde, vorschlag }: { runde: Runde; vorschlag: string }) {
     setPlatz(weiter !== null ? String(weiter) : '')
   }
 
-  /** schonGeprueft: Aufruf aus beiReturn, das die Kennzeichen-Prüfung schon frisch gemacht hat */
-  async function speichern(weiter: boolean, schonGeprueft = false) {
+  /**
+   * „OHNE“ und noch kein Foto → Kamera öffnen statt speichern. Muss SOFORT im Tipp bzw. bei
+   * Return passieren (vor jedem „await“), sonst lässt Safari die Kamera nicht aufgehen.
+   */
+  function kameraStattSpeichern(weiter: boolean): boolean {
+    if (!ohne || fotos.length > 0) return false
+    if (!gueltigeEbene) {
+      alert('Bitte zuerst eine Ebene wählen.')
+      return true
+    }
+    if (platzPruefen() === undefined) return true
+    nachFotoSpeichern.current = weiter
+    kamera.current?.click()
+    return true
+  }
+
+  function fotoErhalten(b: Blob) {
+    const neu = [...fotos, b]
+    setFotos(neu)
+    const weiter = nachFotoSpeichern.current
+    nachFotoSpeichern.current = null
+    if (weiter !== null) speichern(weiter, true, neu)
+  }
+
+  /**
+   * schonGeprueft: Aufruf aus beiReturn, das die Kennzeichen-Prüfung schon frisch gemacht hat
+   * fotosJetzt: direkt nach der Aufnahme, bevor React den neuen Zustand kennt
+   */
+  async function speichern(weiter: boolean, schonGeprueft = false, fotosJetzt = fotos) {
     if (!gueltigeEbene || speichert) return
     if (!schonGeprueft && !kannSpeichern) return
     const nr = platzPruefen()
@@ -143,7 +175,7 @@ function Formular({ runde, vorschlag }: { runde: Runde; vorschlag: string }) {
         stellplatz: nr,
         kategorie,
         notiz,
-        fotos,
+        fotos: fotosJetzt,
       }),
     )
     setSpeichert(false)
@@ -162,6 +194,11 @@ function Formular({ runde, vorschlag }: { runde: Runde; vorschlag: string }) {
    */
   async function beiReturn() {
     if (norm.length < 2 || speichert) return
+    if (ohne) {
+      // kein Abgleich – jedes Fahrzeug ohne Kennzeichen ist ein eigenes (Foto ist schon da)
+      await speichern(true, true)
+      return
+    }
     const vorgaenge = await db.vorgaenge.where('kennzeichen').equals(norm).toArray()
     const offenJetzt = vorgaenge.find((v) => v.offen)
     if (offenJetzt) {
@@ -208,6 +245,7 @@ function Formular({ runde, vorschlag }: { runde: Runde; vorschlag: string }) {
       <form
         onSubmit={(e) => {
           e.preventDefault()
+          if (kameraStattSpeichern(true)) return
           beiReturn()
         }}
       >
@@ -221,6 +259,7 @@ function Formular({ runde, vorschlag }: { runde: Runde; vorschlag: string }) {
           onChange={(e) => {
             setKennzeichen(e.target.value)
             setMeldung('')
+            nachFotoSpeichern.current = null
           }}
           placeholder="z. B. HH-AB 123"
           autoCapitalize="characters"
@@ -255,6 +294,17 @@ function Formular({ runde, vorschlag }: { runde: Runde; vorschlag: string }) {
         </p>
       )}
       {'fehler' in platzEingabe && <Hinweis art="fehler">{platzEingabe.fehler}</Hinweis>}
+      {ohne && (
+        <Hinweis>
+          <p>
+            <strong>Fahrzeug ohne Kennzeichen:</strong> Ein Foto ist Pflicht.{' '}
+            {fotos.length === 0
+              ? 'Bei Return oder „Speichern“ öffnet sich die Kamera, nach dem Foto wird gespeichert.'
+              : 'Foto ist da – Return speichert.'}
+          </p>
+          <p>Tipp: Modell und Farbe angeben, damit man das Fahrzeug später wiederfindet.</p>
+        </Hinweis>
+      )}
       {belegtVon && bereich && platzNr !== null && (
         <Hinweis art="warnung">
           <p>
@@ -355,7 +405,7 @@ function Formular({ runde, vorschlag }: { runde: Runde; vorschlag: string }) {
           </div>
 
           <div className="feld">
-            <span className="feld-titel">Fotos (optional)</span>
+            <span className="feld-titel">{ohne ? 'Foto (Pflicht ohne Kennzeichen)' : 'Fotos (optional)'}</span>
             {fotos.length > 0 && (
               <div className="fotos">
                 {fotos.map((f, i) => (
@@ -373,7 +423,7 @@ function Formular({ runde, vorschlag }: { runde: Runde; vorschlag: string }) {
                 ))}
               </div>
             )}
-            <FotoAufnahme beiFoto={(b) => setFotos((alt) => [...alt, b])} />
+            <FotoAufnahme beiFoto={fotoErhalten} eingabeRef={kamera} />
           </div>
 
           <label className="feld">
@@ -382,14 +432,16 @@ function Formular({ runde, vorschlag }: { runde: Runde; vorschlag: string }) {
           </label>
 
           <div className="knopf-reihe">
-            <button type="button" className="knopf gross" disabled={!kannSpeichern} onClick={() => speichern(true)}>
+            <button type="button" className="knopf gross" disabled={!kannSpeichern}
+              onClick={() => kameraStattSpeichern(true) || speichern(true)}
+            >
               Speichern + nächstes
             </button>
             <button
               type="button"
               className="knopf gross zweitrangig"
               disabled={!kannSpeichern}
-              onClick={() => speichern(false)}
+              onClick={() => kameraStattSpeichern(false) || speichern(false)}
             >
               Speichern
             </button>

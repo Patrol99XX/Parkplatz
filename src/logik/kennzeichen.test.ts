@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { normalisiereKennzeichen, pruefeKennzeichen } from './kennzeichen'
+import { istOhneKennzeichen, normalisiereKennzeichen, pruefeKennzeichen } from './kennzeichen'
 import type { Vorgang } from '../db/typen'
 
 describe('normalisiereKennzeichen', () => {
@@ -117,5 +117,31 @@ describe('pruefeKennzeichen', () => {
     const b = pruefeKennzeichen([spaeter], t(24, 8))
     expect(b.fruehere).toEqual([])
     expect(b.vermutlichZurueck).toBe(false)
+  })
+})
+
+describe('Fahrzeuge ohne Kennzeichen („OHNE“)', () => {
+  it.each(['OHNE', 'ohne', ' Ohne ', 'OH-NE'])('%j gilt als ohne Kennzeichen', (e) => {
+    expect(istOhneKennzeichen(e)).toBe(true)
+  })
+  it.each(['OHNE1', 'HH-OH 1', ''])('%j nicht', (e) => {
+    expect(istOhneKennzeichen(e)).toBe(false)
+  })
+
+  it('werden nie abgeglichen: kein offener Vorgang, kein Wiederholer, kein „vermutlich zurück“', () => {
+    const offen = vorgang({ id: 'a', kennzeichen: 'OHNE', kennzeichenAnzeige: 'OHNE' })
+    const heuteWeg = vorgang({
+      id: 'b',
+      kennzeichen: 'OHNE',
+      kennzeichenAnzeige: 'OHNE',
+      ersterfasstAm: t(24, 8).toISOString(),
+      offen: false,
+      beendetAm: t(24, 9).toISOString(),
+    })
+    expect(pruefeKennzeichen([offen, heuteWeg], t(24, 15))).toEqual({
+      offenerVorgang: null,
+      vermutlichZurueck: false,
+      fruehere: [],
+    })
   })
 })

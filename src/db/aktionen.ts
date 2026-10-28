@@ -3,7 +3,7 @@
 import { db } from './db'
 import type { Einstellungen, Kategorie, Runde, StellplatzBereich, RundenTyp, SichtungsErgebnis, Vorgang } from './typen'
 import { jetztIso, neueId } from '../logik/uuid'
-import { normalisiereKennzeichen } from '../logik/kennzeichen'
+import { istOhneKennzeichen, normalisiereKennzeichen } from '../logik/kennzeichen'
 
 // ---------- Einstellungen ----------
 
@@ -248,12 +248,13 @@ export async function fahrzeugErfassen(rundeId: string, f: NeuesFahrzeug): Promi
     erstelltAm: jetzt,
     geaendertAm: jetzt,
   }
+  const ohne = istOhneKennzeichen(vorgang.kennzeichen)
+  // Ohne Kennzeichen ist das Foto das einzige sichere Erkennungsmerkmal
+  if (ohne && f.fotos.length === 0) throw new Error('Fahrzeuge ohne Kennzeichen brauchen ein Foto.')
   await db.transaction('rw', db.vorgaenge, db.sichtungen, db.fotos, async () => {
-    const doppelt = await db.vorgaenge
-      .where('kennzeichen')
-      .equals(vorgang.kennzeichen)
-      .filter((v) => v.offen)
-      .first()
+    const doppelt = ohne
+      ? undefined
+      : await db.vorgaenge.where('kennzeichen').equals(vorgang.kennzeichen).filter((v) => v.offen).first()
     if (doppelt) throw new Error('Für dieses Kennzeichen gibt es schon einen offenen Vorgang.')
     await db.vorgaenge.add(vorgang)
     await db.sichtungen.add({
@@ -297,7 +298,10 @@ export async function vorgangAendern(
       neu.kennzeichenAnzeige = aenderung.kennzeichenAnzeige.trim().toUpperCase()
       neu.kennzeichen = normalisiereKennzeichen(aenderung.kennzeichenAnzeige)
       if (!neu.kennzeichen) throw new Error('Bitte ein Kennzeichen eingeben.')
-      if (v.offen && neu.kennzeichen !== v.kennzeichen) {
+      if (istOhneKennzeichen(neu.kennzeichen) && v.fotoIds.length === 0) {
+        throw new Error('Fahrzeuge ohne Kennzeichen brauchen ein Foto. Bitte zuerst ein Foto hinzufügen.')
+      }
+      if (v.offen && neu.kennzeichen !== v.kennzeichen && !istOhneKennzeichen(neu.kennzeichen)) {
         const doppelt = await db.vorgaenge
           .where('kennzeichen')
           .equals(neu.kennzeichen)
@@ -325,6 +329,9 @@ export async function fotoLoeschen(vorgangId: string, fotoId: string) {
   await db.transaction('rw', db.vorgaenge, db.fotos, async () => {
     const v = await db.vorgaenge.get(vorgangId)
     if (!v) return
+    if (istOhneKennzeichen(v.kennzeichen) && v.fotoIds.length <= 1) {
+      throw new Error('Das letzte Foto eines Fahrzeugs ohne Kennzeichen kann nicht gelöscht werden.')
+    }
     await db.fotos.delete(fotoId)
     await db.vorgaenge.update(vorgangId, {
       fotoIds: v.fotoIds.filter((x) => x !== fotoId),

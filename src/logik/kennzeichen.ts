@@ -6,6 +6,18 @@ export function normalisiereKennzeichen(eingabe: string): string {
   return eingabe.toUpperCase().replace(/[\s-]/g, '')
 }
 
+/** Platzhalter für Fahrzeuge ohne Kennzeichen (z. B. noch nicht zugelassene Neuwagen). */
+export const OHNE_KENNZEICHEN = 'OHNE'
+
+/**
+ * „OHNE“ ist kein Kennzeichen, sondern viele verschiedene Fahrzeuge. Es darf deshalb mehrfach
+ * offen sein und wird nie mit anderen Vorgängen abgeglichen (kein „bereits erfasst“, kein
+ * Wiederholer). Erkannt werden muss das Fahrzeug über Foto, Platz und Modell.
+ */
+export function istOhneKennzeichen(kennzeichen: string): boolean {
+  return normalisiereKennzeichen(kennzeichen) === OHNE_KENNZEICHEN
+}
+
 export const WIEDERHOLER_TAGE = 30
 
 export interface KennzeichenBefund {
@@ -30,7 +42,7 @@ export function pruefeKennzeichen(
   bezug: Date,
   eigeneId?: string,
 ): KennzeichenBefund {
-  const andere = vorgaenge.filter((v) => v.id !== eigeneId)
+  const andere = vorgaenge.filter((v) => v.id !== eigeneId && !istOhneKennzeichen(v.kennzeichen))
   const grenze = bezug.getTime() - WIEDERHOLER_TAGE * 24 * 60 * 60 * 1000
 
   const offenerVorgang = andere.find((v) => v.offen) ?? null

@@ -1,5 +1,5 @@
 // Kleine, mehrfach verwendete Bausteine der Oberfläche.
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode, type Ref } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from './db/db'
 import { verkleinereFoto } from './logik/foto'
@@ -81,12 +81,22 @@ export function FotoAusDb({ fotoId, alt, onClick }: { fotoId: string; alt: strin
  * Öffnet auf dem iPhone/iPad direkt die Kamera (capture="environment" = Rückkamera).
  * Das Foto wird vor dem Speichern verkleinert.
  */
-export function FotoAufnahme({ beiFoto, text = '📷 Foto aufnehmen' }: { beiFoto: (b: Blob) => void; text?: string }) {
+export function FotoAufnahme({
+  beiFoto,
+  text = '📷 Foto aufnehmen',
+  eingabeRef,
+}: {
+  beiFoto: (b: Blob) => void
+  text?: string
+  /** Zugriff auf das Datei-Feld, um die Kamera per Programm zu öffnen (z. B. bei „OHNE“) */
+  eingabeRef?: Ref<HTMLInputElement>
+}) {
   const [laedt, setLaedt] = useState(false)
   return (
     <label className={`knopf zweitrangig foto-knopf ${laedt ? 'laedt' : ''}`}>
       {laedt ? 'Foto wird verarbeitet …' : text}
       <input
+        ref={eingabeRef}
         type="file"
         accept="image/*"
         capture="environment"
