@@ -5,7 +5,8 @@ import { KATEGORIE_TEXT, RUNDEN_TYP_TEXT, type Vorgang } from '../db/typen'
 import { formatDatum, formatZeit, standdauerText } from '../logik/zeit'
 import { sicherungFaellig } from '../logik/sicherung'
 import { nachPlatz } from '../logik/stellplatz'
-import { FotoAusDb, Hinweis, Kopf } from '../komponenten'
+import { FotoAusDb, Hinweis } from '../komponenten'
+import { HamburgSkyline } from '../hamburg'
 
 export function Uebersicht() {
   const einstellungen = useEinstellungen()
@@ -33,7 +34,13 @@ export function Uebersicht() {
 
   return (
     <>
-      <Kopf titel="Übersicht" />
+      <header className="hamburg-kopf">
+        <div className="hamburg-text">
+          <h1>Moin!</h1>
+          <p>{jetzt.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })}</p>
+        </div>
+        <HamburgSkyline className="hamburg-silhouette" wasser="var(--akzent)" />
+      </header>
 
       {daten.gesamt > 0 && sicherungFaellig(einstellungen.letzteSicherungAm, jetzt) && (
         <Hinweis art="warnung">

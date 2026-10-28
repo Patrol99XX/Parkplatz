@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { usePfad } from './navigation'
+import { HamburgSkyline } from './hamburg'
 import { useAktiveRunde } from './db/hooks'
 import { Uebersicht } from './seiten/Uebersicht'
 import { Rundgang } from './seiten/Rundgang'
@@ -45,6 +46,7 @@ export function App() {
 
   return (
     <>
+      <HamburgSkyline className="hintergrund-skyline" />
       <main className="seite">{inhalt}</main>
       <nav className="reiter">
         <a href="#/" className={!seite || seite === 'fahrzeug' ? 'aktiv' : ''}>
