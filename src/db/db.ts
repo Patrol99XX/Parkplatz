@@ -49,6 +49,19 @@ export class ParkplatzDB extends Dexie {
         await tx.table('einstellungen').put(e)
       })
 
+    // Version 3: „Fläche ganz neu“ ist jetzt mit 1–14 nummeriert. Nur eintragen, wenn die
+    // Fläche noch keinen Bereich hat – selbst eingestellte Bereiche bleiben unberührt.
+    this.version(3)
+      .stores(tabellen)
+      .upgrade(async (tx) => {
+        const e = (await tx.table('einstellungen').get('app')) as Einstellungen | undefined
+        if (!e) return
+        e.ebenen = e.ebenen.map((ebene) =>
+          !ebene.stellplaetze && /ganz neu$/i.test(ebene.name) ? { ...ebene, stellplaetze: GANZ_NEU } : ebene,
+        )
+        await tx.table('einstellungen').put(e)
+      })
+
     // Wird nur beim allerersten Öffnen der Datenbank ausgeführt.
     this.on('populate', (tx) => {
       tx.table('einstellungen').add(standardEinstellungen())
@@ -73,8 +86,10 @@ export function standardEinstellungen(): Einstellungen {
   }
 }
 
+const GANZ_NEU = { praefix: '', von: 1, bis: 14 }
+
 /**
- * Nummernbereiche der Parkhaus-Ebenen laut Beschilderung: 0.01–0.20 und -1.01–-1.44.
+ * Nummernbereiche laut Beschilderung: Parkhaus 0.01–0.20 und -1.01–-1.44, „Fläche ganz neu“ 1–14.
  * Wird nur gesetzt, wenn die Ebene noch keinen Bereich hat; später in den Einstellungen änderbar.
  */
 function mitStandardStellplaetzen(ebene: Ebene): Ebene {
@@ -82,6 +97,7 @@ function mitStandardStellplaetzen(ebene: Ebene): Ebene {
   const name = ebene.name.replace('−', '-') // typografisches Minus wie Bindestrich behandeln
   if (/ebene 0$/i.test(name)) return { ...ebene, stellplaetze: { praefix: '0.', von: 1, bis: 20 } }
   if (/ebene -1$/i.test(name)) return { ...ebene, stellplaetze: { praefix: '-1.', von: 1, bis: 44 } }
+  if (/ganz neu$/i.test(name)) return { ...ebene, stellplaetze: GANZ_NEU }
   return { ...ebene, stellplaetze: null }
 }
 

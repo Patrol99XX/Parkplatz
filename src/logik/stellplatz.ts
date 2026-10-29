@@ -3,8 +3,12 @@
 // So tippt man beim Erfassen nur „5“ auf dem Ziffernblock.
 import type { StellplatzBereich, Vorgang } from '../db/typen'
 
-/** 5 → „0.05“ (zweistellig, bei mehr als 99 Plätzen entsprechend länger) */
+/**
+ * 5 → „0.05“ (zweistellig, bei mehr als 99 Plätzen entsprechend länger).
+ * Ohne Präfix (z. B. Außenfläche 1–14) steht die Nummer so da, wie sie auf dem Boden steht: „5“.
+ */
 export function platzText(bereich: StellplatzBereich, nr: number): string {
+  if (!bereich.praefix) return String(nr)
   const stellen = Math.max(2, String(bereich.bis).length)
   return `${bereich.praefix}${String(nr).padStart(stellen, '0')}`
 }

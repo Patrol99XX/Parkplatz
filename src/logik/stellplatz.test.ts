@@ -15,6 +15,9 @@ describe('platzText', () => {
   it('dreistellig bei mehr als 99 Plätzen', () => {
     expect(platzText({ praefix: 'A', von: 1, bis: 120 }, 7)).toBe('A007')
   })
+  it('ohne Präfix ohne führende Null', () => {
+    expect(platzText({ praefix: '', von: 1, bis: 14 }, 7)).toBe('7')
+  })
 })
 
 describe('platzEinlesen', () => {
