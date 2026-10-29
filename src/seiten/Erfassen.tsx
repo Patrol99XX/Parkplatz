@@ -231,6 +231,17 @@ function Formular({ runde, vorschlag }: { runde: Runde; vorschlag: string }) {
     await speichern(true, true)
   }
 
+  /**
+   * Auf dem vorgeschlagenen Platz steht noch das bekannte Fahrzeug: bestätigen und gleich zum
+   * nächsten Platz – hier gibt es nichts Neues zu erfassen.
+   */
+  async function platzNochDa() {
+    if (!belegtVon || platzNr === null) return
+    await mitFehlermeldung(() => sichtungSetzen(runde.id, belegtVon.id, 'noch_da'))
+    platzWeiter(platzNr)
+    zuruecksetzen(`${belegtVon.kennzeichenAnzeige} als „noch da“ bestätigt.`)
+  }
+
   async function nochDaBestaetigen() {
     if (!offen) return
     await mitFehlermeldung(() => sichtungSetzen(runde.id, offen.id, 'noch_da'))
@@ -288,9 +299,19 @@ function Formular({ runde, vorschlag }: { runde: Runde; vorschlag: string }) {
       {/* unsichtbarer Absende-Knopf, damit Return auch im Platz-Feld speichert */}
       <button type="submit" hidden />
       </form>
+      {/* Fahrzeuge auf nicht gekennzeichneten Flächen bekommen keine Nummer; dann zählt auch nichts hoch */}
       {bereich && platzNr !== null && (
         <p className="klein" style={{ marginTop: -8 }}>
-          Platz <span className="platz-marke">{platzText(bereich, platzNr)}</span>
+          Platz <span className="platz-marke">{platzText(bereich, platzNr)}</span> ·{' '}
+          <button type="button" className="text-knopf" onClick={() => setPlatz('')}>
+            ohne Nr. (nicht gekennzeichnete Fläche)
+          </button>
+        </p>
+      )}
+      {bereich && platz.trim() === '' && (
+        <p className="klein" style={{ marginTop: -8 }}>
+          Ohne Platznummer – für Fahrzeuge außerhalb der markierten Plätze. Für nummerierte Plätze
+          die Nummer eintippen.
         </p>
       )}
       {'fehler' in platzEingabe && <Hinweis art="fehler">{platzEingabe.fehler}</Hinweis>}
@@ -311,13 +332,18 @@ function Formular({ runde, vorschlag }: { runde: Runde; vorschlag: string }) {
             Platz {platzText(bereich, platzNr)} ist laut App noch mit <strong>{belegtVon.kennzeichenAnzeige}</strong>{' '}
             belegt.
           </p>
-          <button
-            type="button"
-            className="knopf zweitrangig"
-            onClick={() => mitFehlermeldung(() => sichtungSetzen(runde.id, belegtVon.id, 'weg'))}
-          >
-            {belegtVon.kennzeichenAnzeige} ist weg
-          </button>
+          <div className="knopf-reihe">
+            <button type="button" className="knopf" onClick={platzNochDa}>
+              {belegtVon.kennzeichenAnzeige} ist noch da
+            </button>
+            <button
+              type="button"
+              className="knopf zweitrangig"
+              onClick={() => mitFehlermeldung(() => sichtungSetzen(runde.id, belegtVon.id, 'weg'))}
+            >
+              {belegtVon.kennzeichenAnzeige} ist weg
+            </button>
+          </div>
         </Hinweis>
       )}
       <p className="klein" style={{ marginTop: 0 }}>
