@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/db'
 import { ebenenName, useAktiveRunde, useEinstellungen, useModellVorschlaege } from '../db/hooks'
@@ -26,6 +26,24 @@ function letzteEbeneMerken(id: string) {
     localStorage.setItem('letzteEbene', id)
   } catch {
     // nicht schlimm, dann wird nur nichts vorgeschlagen
+  }
+}
+
+// Der vorgeschlagene Platz wird je Ebene für die laufende Kontrolle gemerkt – nach einem
+// Abstecher in den Rundgang geht es dort weiter, wo man aufgehört hat, statt wieder bei 1.
+function platzLesen(rundeId: string, ebeneId: string): string | null {
+  try {
+    const gemerkt = JSON.parse(localStorage.getItem(`platz:${ebeneId}`) ?? 'null')
+    return gemerkt?.rundeId === rundeId ? gemerkt.text : null
+  } catch {
+    return null
+  }
+}
+function platzMerken(rundeId: string, ebeneId: string, text: string) {
+  try {
+    localStorage.setItem(`platz:${ebeneId}`, JSON.stringify({ rundeId, text }))
+  } catch {
+    // nicht schlimm, dann beginnt die Ebene beim nächsten Mal wieder beim ersten Platz
   }
 }
 
@@ -119,6 +137,21 @@ function Formular({ runde, vorschlag }: { runde: Runde; vorschlag: string }) {
     )
   }, [gueltigeEbene, platzNr, norm])
 
+  // Ebene gewählt (auch beim Öffnen mit der zuletzt benutzten Ebene): gemerkten Platz dieser
+  // Kontrolle übernehmen, sonst beim ersten Platz der Ebene anfangen – ohne Tippen.
+  const hochzaehlen = einstellungen?.platzHochzaehlen !== false
+  useEffect(() => {
+    if (!gueltigeEbene) return
+    const gemerkt = platzLesen(runde.id, gueltigeEbene)
+    setPlatz(gemerkt ?? (bereich && hochzaehlen ? String(bereich.von) : ''))
+  }, [gueltigeEbene, runde.id])
+
+  /** Platzfeld ändern und für diese Ebene merken */
+  function platzAendern(text: string) {
+    setPlatz(text)
+    if (gueltigeEbene) platzMerken(runde.id, gueltigeEbene, text)
+  }
+
   if (!einstellungen) return null
   const offen = befund?.offenerVorgang ?? null
   const wegDieseRunde = befund?.wegDieseRunde
@@ -148,7 +181,7 @@ function Formular({ runde, vorschlag }: { runde: Runde; vorschlag: string }) {
   /** Nach dem Speichern: nächsten Platz vorschlagen (falls eingestellt), sonst Feld leeren */
   function platzWeiter(nr: number | null) {
     const weiter = nr !== null && bereich && einstellungen!.platzHochzaehlen !== false ? naechsterPlatz(nr, bereich) : null
-    setPlatz(weiter !== null ? String(weiter) : '')
+    platzAendern(weiter !== null ? String(weiter) : '')
   }
 
   /**
@@ -278,6 +311,21 @@ function Formular({ runde, vorschlag }: { runde: Runde; vorschlag: string }) {
     zuruecksetzen(`${belegtVon.kennzeichenAnzeige} als „noch da“ bestätigt.`)
   }
 
+  /**
+   * Das bekannte Fahrzeug ist weg. Platz leer → weiter zum nächsten Platz.
+   * Steht ein anderes Fahrzeug da → Platz bleiben, damit es gleich hier erfasst wird.
+   */
+  async function platzWeg(platzLeer: boolean) {
+    if (!belegtVon || platzNr === null) return
+    await mitFehlermeldung(() => sichtungSetzen(runde.id, belegtVon.id, 'weg'))
+    if (platzLeer) platzWeiter(platzNr)
+    zuruecksetzen(
+      platzLeer
+        ? `${belegtVon.kennzeichenAnzeige} als „weg“ markiert, Platz ${platzText(bereich!, platzNr)} ist leer.`
+        : `${belegtVon.kennzeichenAnzeige} als „weg“ markiert – jetzt das Fahrzeug auf Platz ${platzText(bereich!, platzNr)} erfassen.`,
+    )
+  }
+
   async function nochDaBestaetigen() {
     if (!offen) return
     await mitFehlermeldung(() => sichtungSetzen(runde.id, offen.id, 'noch_da'))
@@ -323,7 +371,7 @@ function Formular({ runde, vorschlag }: { runde: Runde; vorschlag: string }) {
           <span>Platz</span>
           <input
             value={platz}
-            onChange={(e) => setPlatz(e.target.value)}
+            onChange={(e) => platzAendern(e.target.value)}
             inputMode="decimal"
             placeholder={platzText(bereich, bereich.von)}
             autoComplete="off"
@@ -363,7 +411,7 @@ function Formular({ runde, vorschlag }: { runde: Runde; vorschlag: string }) {
       {bereich && platzNr !== null && (
         <p className="klein" style={{ marginTop: -8 }}>
           Platz <span className="platz-marke">{platzText(bereich, platzNr)}</span> ·{' '}
-          <button type="button" className="text-knopf" onClick={() => setPlatz('')}>
+          <button type="button" className="text-knopf" onClick={() => platzAendern('')}>
             ohne Nr. (nicht gekennzeichnete Fläche)
           </button>
         </p>
@@ -396,12 +444,11 @@ function Formular({ runde, vorschlag }: { runde: Runde; vorschlag: string }) {
             <button type="button" className="knopf" onClick={platzNochDa}>
               {belegtVon.kennzeichenAnzeige} ist noch da
             </button>
-            <button
-              type="button"
-              className="knopf zweitrangig"
-              onClick={() => mitFehlermeldung(() => sichtungSetzen(runde.id, belegtVon.id, 'weg'))}
-            >
-              {belegtVon.kennzeichenAnzeige} ist weg
+            <button type="button" className="knopf zweitrangig" onClick={() => platzWeg(true)}>
+              weg – Platz leer
+            </button>
+            <button type="button" className="knopf zweitrangig" onClick={() => platzWeg(false)}>
+              weg – anderes Fahrzeug steht hier
             </button>
           </div>
         </Hinweis>
@@ -478,10 +525,7 @@ function Formular({ runde, vorschlag }: { runde: Runde; vorschlag: string }) {
             <Auswahl
               werte={aktiveEbenen.map((e) => e.id)}
               wert={gueltigeEbene}
-              beiAuswahl={(id) => {
-                setEbeneId(id)
-                setPlatz('')
-              }}
+              beiAuswahl={setEbeneId}
               text={(id) => ebenenName(einstellungen, id)}
             />
           </div>
