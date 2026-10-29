@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { istOhneKennzeichen, normalisiereKennzeichen, pruefeKennzeichen } from './kennzeichen'
+import { istOhneKennzeichen, kennzeichenVorschlaege, normalisiereKennzeichen, pruefeKennzeichen } from './kennzeichen'
 import type { Vorgang } from '../db/typen'
 
 describe('normalisiereKennzeichen', () => {
@@ -143,5 +143,24 @@ describe('Fahrzeuge ohne Kennzeichen („OHNE“)', () => {
       vermutlichZurueck: false,
       fruehere: [],
     })
+  })
+})
+
+describe('kennzeichenVorschlaege', () => {
+  const v = (kennzeichen: string, offen = true) => ({ id: kennzeichen, kennzeichen, offen }) as Vorgang
+  const bestand = [v('HHAB123'), v('HHXY1234'), v('PIAB12'), v('HHCD123', false), v('OHNE')]
+  const kz = (eingabe: string) => kennzeichenVorschlaege(bestand, eingabe).map((x) => x.kennzeichen)
+
+  it('findet den Teil irgendwo im Kennzeichen, nur offene', () => {
+    expect(kz('123')).toEqual(['HHAB123', 'HHXY1234'])
+    expect(kz('ab 12')).toEqual(['HHAB123', 'PIAB12'])
+  })
+  it('erst ab 2 Zeichen', () => {
+    expect(kz('1')).toEqual([])
+  })
+  it('exakter Treffer und „OHNE“ werden nicht vorgeschlagen', () => {
+    expect(kz('HH-AB 123')).toEqual([])
+    expect(kz('OHNE')).toEqual([])
+    expect(kz('OH')).toEqual([])
   })
 })

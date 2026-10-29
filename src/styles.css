@@ -764,3 +764,24 @@ label.feld > span,
     gap: 0 10px;
   }
 }
+
+/* Vorschläge bekannter Fahrzeuge beim Erfassen */
+.vorschlaege {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.knopf.vorschlag {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  gap: 2px;
+}
+
+.vorschlag-kz {
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}

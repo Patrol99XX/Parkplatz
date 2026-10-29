@@ -18,6 +18,19 @@ export function istOhneKennzeichen(kennzeichen: string): boolean {
   return normalisiereKennzeichen(kennzeichen) === OHNE_KENNZEICHEN
 }
 
+/**
+ * Offene Fahrzeuge, deren Kennzeichen den getippten Teil enthält („123“ findet „HH-AB 123“).
+ * So muss man bei bekannten Fahrzeugen nur ein paar Zeichen tippen statt des ganzen Kennzeichens.
+ * Der exakte Treffer fehlt bewusst – der wird schon als „Bereits erfasst“ angezeigt.
+ */
+export function kennzeichenVorschlaege(vorgaenge: Vorgang[], eingabe: string): Vorgang[] {
+  const teil = normalisiereKennzeichen(eingabe)
+  if (teil.length < 2 || teil === OHNE_KENNZEICHEN) return []
+  return vorgaenge
+    .filter((v) => v.offen && !istOhneKennzeichen(v.kennzeichen) && v.kennzeichen !== teil && v.kennzeichen.includes(teil))
+    .sort((a, b) => a.kennzeichen.localeCompare(b.kennzeichen))
+}
+
 export const WIEDERHOLER_TAGE = 30
 
 export interface KennzeichenBefund {

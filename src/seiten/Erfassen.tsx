@@ -3,8 +3,8 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/db'
 import { ebenenName, useAktiveRunde, useEinstellungen, useModellVorschlaege } from '../db/hooks'
 import { fahrzeugErfassen, sichtungSetzen, vorgangAendern, wegRueckgaengig } from '../db/aktionen'
-import { KATEGORIE_TEXT, type Kategorie, type Runde } from '../db/typen'
-import { istOhneKennzeichen, normalisiereKennzeichen, pruefeKennzeichen } from '../logik/kennzeichen'
+import { KATEGORIE_TEXT, type Kategorie, type Runde, type Vorgang } from '../db/typen'
+import { istOhneKennzeichen, kennzeichenVorschlaege, normalisiereKennzeichen, pruefeKennzeichen } from '../logik/kennzeichen'
 import { formatDatum, standdauerText } from '../logik/zeit'
 import { naechsterPlatz, platzEinlesen, platzText } from '../logik/stellplatz'
 import { Auswahl, BlobBild, FotoAufnahme, Hinweis, Kopf, mitFehlermeldung } from '../komponenten'
@@ -61,6 +61,8 @@ function Formular({ runde, vorschlag }: { runde: Runde; vorschlag: string }) {
   const [fotos, setFotos] = useState<Blob[]>([])
   const [speichert, setSpeichert] = useState(false)
   const [meldung, setMeldung] = useState('')
+  // Return wurde gedrückt, während nur Vorschläge (kein exakter Treffer) passten
+  const [returnGesperrt, setReturnGesperrt] = useState(false)
   const kamera = useRef<HTMLInputElement>(null)
   // Bei „OHNE“ ohne Foto öffnet Speichern zuerst die Kamera; danach wird automatisch gespeichert.
   // Hier steht, ob danach „weiter“ (nächstes Fahrzeug) oder zurück zum Rundgang.
@@ -84,6 +86,21 @@ function Formular({ runde, vorschlag }: { runde: Runde; vorschlag: string }) {
     // In dieser Kontrolle versehentlich als „weg“ markiert? Dann lieber das rückgängig machen.
     const wegDieseRunde = b.offenerVorgang ? undefined : vorgaenge.find((v) => v.beendetInRundeId === runde.id)
     return { ...b, sichtungDieseRunde: sichtung, wegDieseRunde }
+  }, [norm, runde.id])
+
+  // Offene Fahrzeuge, die zum Getippten passen – noch nicht bestätigte zuerst
+  const vorschlaege = useLiveQuery(async () => {
+    const treffer = kennzeichenVorschlaege(await db.vorgaenge.filter((v) => v.offen).toArray(), norm)
+    if (treffer.length === 0) return []
+    const gesehen = new Set(
+      (await db.sichtungen.where('rundeId').equals(runde.id).toArray())
+        .filter((s) => s.ergebnis !== 'weg')
+        .map((s) => s.vorgangId),
+    )
+    return treffer
+      .map((v) => ({ v, schonDa: gesehen.has(v.id) }))
+      .sort((a, b) => Number(a.schonDa) - Number(b.schonDa))
+      .slice(0, 6)
   }, [norm, runde.id])
 
   const aktiveEbenen = einstellungen?.ebenen.filter((e) => e.aktiv) ?? []
@@ -113,6 +130,7 @@ function Formular({ runde, vorschlag }: { runde: Runde; vorschlag: string }) {
     setKategorie('unbekannt')
     setNotiz('')
     setFotos([])
+    setReturnGesperrt(false)
     setMeldung(text)
     window.scrollTo(0, 0)
     kennzeichenFeld.current?.focus()
@@ -202,33 +220,51 @@ function Formular({ runde, vorschlag }: { runde: Runde; vorschlag: string }) {
     const vorgaenge = await db.vorgaenge.where('kennzeichen').equals(norm).toArray()
     const offenJetzt = vorgaenge.find((v) => v.offen)
     if (offenJetzt) {
-      // Platz angegeben (z. B. beim Nachtragen der Nummern)? Dann steht das Fahrzeug genau hier.
-      const nr = platzPruefen()
-      if (nr === undefined) return
-      if (nr !== null && gueltigeEbene && (offenJetzt.stellplatz !== nr || offenJetzt.ebeneId !== gueltigeEbene)) {
-        await mitFehlermeldung(() => vorgangAendern(offenJetzt.id, { ebeneId: gueltigeEbene, stellplatz: nr }))
-      }
-      platzWeiter(nr)
-      const s = await db.sichtungen
-        .where('rundeId')
-        .equals(runde.id)
-        .filter((x) => x.vorgangId === offenJetzt.id)
-        .first()
-      if (s && s.ergebnis !== 'weg') {
-        zuruecksetzen(`${offenJetzt.kennzeichenAnzeige} war in dieser Kontrolle schon erfasst.`)
-        return
-      }
-      await mitFehlermeldung(() => sichtungSetzen(runde.id, offenJetzt.id, 'noch_da'))
-      zuruecksetzen(`${offenJetzt.kennzeichenAnzeige} als „noch da“ bestätigt.`)
+      await bekanntBestaetigen(offenJetzt)
       return
     }
     // In dieser Kontrolle als „weg“ markiert → Hinweis mit „Doch noch da“ steht oben, nichts automatisch tun
     if (vorgaenge.some((v) => v.beendetInRundeId === runde.id)) return
+    // Passen nur Teile bekannter Kennzeichen („123“), ist es vermutlich eines davon und kein neues
+    // Fahrzeug. Return legt dann nichts an; Vorschlag antippen oder bewusst „Speichern“.
+    if (kennzeichenVorschlaege(await db.vorgaenge.filter((v) => v.offen).toArray(), norm).length > 0) {
+      setReturnGesperrt(true)
+      return
+    }
     if (!gueltigeEbene) {
       alert('Bitte zuerst eine Ebene wählen.')
       return
     }
     await speichern(true, true)
+  }
+
+  /** Bekanntes offenes Fahrzeug als „noch da“ bestätigen (Return oder Vorschlag angetippt) */
+  async function bekanntBestaetigen(v: Vorgang) {
+    // Platz angegeben (z. B. beim Nachtragen der Nummern)? Dann steht das Fahrzeug genau hier.
+    const nr = platzPruefen()
+    if (nr === undefined) return
+    if (nr !== null && gueltigeEbene && (v.stellplatz !== nr || v.ebeneId !== gueltigeEbene)) {
+      await mitFehlermeldung(() => vorgangAendern(v.id, { ebeneId: gueltigeEbene, stellplatz: nr }))
+    }
+    platzWeiter(nr)
+    const s = await db.sichtungen
+      .where('rundeId')
+      .equals(runde.id)
+      .filter((x) => x.vorgangId === v.id)
+      .first()
+    if (s && s.ergebnis !== 'weg') {
+      zuruecksetzen(`${v.kennzeichenAnzeige} war in dieser Kontrolle schon erfasst.`)
+      return
+    }
+    await mitFehlermeldung(() => sichtungSetzen(runde.id, v.id, 'noch_da'))
+    zuruecksetzen(`${v.kennzeichenAnzeige} als „noch da“ bestätigt.`)
+  }
+
+  /** „Ebene 0 · 0.05“ für die Vorschlagsliste */
+  function ortText(v: Vorgang): string {
+    const b = einstellungen!.ebenen.find((e) => e.id === v.ebeneId)?.stellplaetze
+    const ebene = ebenenName(einstellungen!, v.ebeneId)
+    return v.stellplatz != null && b ? `${ebene} · ${platzText(b, v.stellplatz)}` : ebene
   }
 
   /**
@@ -270,6 +306,7 @@ function Formular({ runde, vorschlag }: { runde: Runde; vorschlag: string }) {
           onChange={(e) => {
             setKennzeichen(e.target.value)
             setMeldung('')
+            setReturnGesperrt(false)
             nachFotoSpeichern.current = null
           }}
           placeholder="z. B. HH-AB 123"
@@ -299,6 +336,29 @@ function Formular({ runde, vorschlag }: { runde: Runde; vorschlag: string }) {
       {/* unsichtbarer Absende-Knopf, damit Return auch im Platz-Feld speichert */}
       <button type="submit" hidden />
       </form>
+      {/* norm prüfen: die Abfrage liefert nach dem Leeren des Feldes kurz noch das alte Ergebnis */}
+      {norm.length >= 2 && vorschlaege && vorschlaege.length > 0 && (
+        <Hinweis art={returnGesperrt ? 'warnung' : undefined}>
+          <p>
+            {returnGesperrt ? (
+              <strong>Bekanntes Fahrzeug? Bitte antippen. </strong>
+            ) : (
+              'Bekanntes Fahrzeug antippen = „noch da“. '
+            )}
+            Neues Fahrzeug: Kennzeichen vollständig eingeben und „Speichern“.
+          </p>
+          <div className="vorschlaege">
+            {vorschlaege.map(({ v, schonDa }) => (
+              <button key={v.id} type="button" className="knopf zweitrangig vorschlag" onClick={() => bekanntBestaetigen(v)}>
+                <span className="vorschlag-kz">{v.kennzeichenAnzeige}</span>
+                <span className="klein">
+                  {[v.modell, ortText(v), schonDa ? '✓ schon bestätigt' : ''].filter(Boolean).join(' · ')}
+                </span>
+              </button>
+            ))}
+          </div>
+        </Hinweis>
+      )}
       {/* Fahrzeuge auf nicht gekennzeichneten Flächen bekommen keine Nummer; dann zählt auch nichts hoch */}
       {bereich && platzNr !== null && (
         <p className="klein" style={{ marginTop: -8 }}>
@@ -348,7 +408,8 @@ function Formular({ runde, vorschlag }: { runde: Runde; vorschlag: string }) {
       )}
       <p className="klein" style={{ marginTop: 0 }}>
         Schnell: Kennzeichen tippen + Return = speichern (Ebene bleibt gewählt
-        {bereich ? ', Platz zählt hoch' : ''}). Feld antippen → „Text scannen“ liest das Kennzeichen mit
+        {bereich ? ', Platz zählt hoch' : ''}). Bekannte Fahrzeuge: ein paar Zeichen tippen, Vorschlag
+        antippen. Feld antippen → „Text scannen“ liest das Kennzeichen mit
         der Kamera.
       </p>
 
