@@ -27,6 +27,8 @@ function nachVorgang(sichtungen: Sichtung[]): Map<string, Sichtung[]> {
 export interface AmpelErgebnis {
   ampeln: Map<string, Ampel>
   klaerungen: Map<string, Klaerung>
+  /** neueste Maßnahme je Vorgang */
+  massnahmen: Map<string, Massnahme>
 }
 
 /** Ampel für die übergebenen (offenen) Vorgänge. Zum Aufruf innerhalb von useLiveQuery. */
@@ -35,6 +37,10 @@ export async function ampelnLaden(vorgaenge: Vorgang[]): Promise<AmpelErgebnis> 
   const ids = vorgaenge.map((v) => v.id)
   const sichtungen = nachVorgang(await db.sichtungen.where('vorgangId').anyOf(ids).toArray())
   const klaerungen = neuesteKlaerungen(await db.klaerungen.where('vorgangId').anyOf(ids).toArray())
+  const alleMassnahmen = new Map<string, Massnahme[]>()
+  for (const m of await db.massnahmen.where('vorgangId').anyOf(ids).toArray()) {
+    alleMassnahmen.set(m.vorgangId, [...(alleMassnahmen.get(m.vorgangId) ?? []), m])
+  }
 
   // Frühere Aufenthalte zählen nur bei Fremdparkern/Mitarbeitern („Antreffen“).
   const zaehltAntreffen = (v: Vorgang) => {
@@ -66,11 +72,16 @@ export async function ampelnLaden(vorgaenge: Vorgang[]): Promise<AmpelErgebnis> 
         sichtungen: sichtungen.get(v.id) ?? [],
         fruehereSichtungen: frueher,
         klaerung: klaerungen.get(v.id) ?? null,
+        massnahmen: alleMassnahmen.get(v.id) ?? [],
         schwellen,
       }),
     )
   }
-  return { ampeln, klaerungen }
+  const massnahmen = new Map<string, Massnahme>()
+  for (const [id, liste] of alleMassnahmen) {
+    massnahmen.set(id, liste.reduce((a, b) => (b.zeitpunkt > a.zeitpunkt ? b : a)))
+  }
+  return { ampeln, klaerungen, massnahmen }
 }
 
 export interface KlaerungsEintrag {
@@ -86,13 +97,8 @@ export interface KlaerungsEintrag {
  */
 export async function klaerungslisteLaden(): Promise<KlaerungsEintrag[]> {
   const offene = await db.vorgaenge.filter((v) => v.offen).toArray()
-  const { ampeln, klaerungen } = await ampelnLaden(offene)
+  const { ampeln, klaerungen, massnahmen } = await ampelnLaden(offene)
   const aufListe = offene.filter((v) => ampeln.get(v.id)?.aufKlaerungsliste)
-  const massnahmen = new Map<string, Massnahme>()
-  for (const m of await db.massnahmen.where('vorgangId').anyOf(aufListe.map((v) => v.id)).toArray()) {
-    const bisher = massnahmen.get(m.vorgangId)
-    if (!bisher || m.zeitpunkt > bisher.zeitpunkt) massnahmen.set(m.vorgangId, m)
-  }
   return aufListe
     .map((v) => ({
       vorgang: v,

@@ -899,3 +899,9 @@ label.feld > span,
   line-height: 20px;
   text-align: center;
 }
+
+/* Vorschlag der Ampel mit einem Tipp erledigen */
+.vorschlag-knopf {
+  align-self: flex-start;
+  margin-top: 8px;
+}

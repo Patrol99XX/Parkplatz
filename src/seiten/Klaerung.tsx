@@ -18,6 +18,7 @@ import {
 import { KLAERUNGS_GRUENDE, klaerungPruefen } from '../logik/klaerung'
 import { formatDatumZeit, standdauerText } from '../logik/zeit'
 import { AmpelAnzeige, Auswahl, FotoAusDb, Kopf, mitFehlermeldung } from '../komponenten'
+import { VorschlagErledigt } from './Massnahme'
 
 // ---------- Formular ----------
 
@@ -139,6 +140,7 @@ function Eintrag({ eintrag, einstellungen, jetzt }: { eintrag: KlaerungsEintrag;
       <div className="unterzeile">
         <AmpelAnzeige ampel={ampel} mitVorschlag />
       </div>
+      {ampel.vorschlag && <VorschlagErledigt vorgangId={v.id} typ={ampel.vorschlag} />}
       <div className="unterzeile">
         <strong>Klärung:</strong> {klaerung ? klaerungText(klaerung) : 'noch keine'}
         {klaerung?.notiz && <> – {klaerung.notiz}</>}

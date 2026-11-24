@@ -11,6 +11,7 @@ import { ampelnLaden } from '../db/ampelDaten'
 import { geheZu } from '../navigation'
 import { OrtAendern } from './Rundgang'
 import { KlaerungFormular, klaerungText } from './Klaerung'
+import { MassnahmenAbschnitt, VorschlagErledigt } from './Massnahme'
 
 const KATEGORIEN: Kategorie[] = ['unbekannt', 'kunde', 'mitarbeiter', 'fremdparker']
 
@@ -38,7 +39,10 @@ export function Fahrzeug({ id }: { id: string }) {
     const klaerungen = (await db.klaerungen.where('vorgangId').equals(id).toArray()).sort((a, b) =>
       b.eingetragenAm.localeCompare(a.eingetragenAm),
     )
-    return { vorgang, verlauf, befund, ampel, klaerungen }
+    const massnahmen = (await db.massnahmen.where('vorgangId').equals(id).toArray()).sort((a, b) =>
+      b.zeitpunkt.localeCompare(a.zeitpunkt),
+    )
+    return { vorgang, verlauf, befund, ampel, klaerungen, massnahmen }
   }, [id])
 
   if (!einstellungen || !daten) return null
@@ -50,7 +54,7 @@ export function Fahrzeug({ id }: { id: string }) {
       </>
     )
   }
-  const { vorgang: v, verlauf, befund, ampel, klaerungen } = daten
+  const { vorgang: v, verlauf, befund, ampel, klaerungen, massnahmen } = daten
   const aendern = (a: Parameters<typeof vorgangAendern>[1]) => mitFehlermeldung(() => vorgangAendern(v.id, a))
 
   return (
@@ -90,6 +94,7 @@ export function Fahrzeug({ id }: { id: string }) {
             <AmpelAnzeige ampel={ampel} mitVorschlag />
           </p>
         )}
+        {ampel?.vorschlag && <VorschlagErledigt vorgangId={v.id} typ={ampel.vorschlag} />}
       </section>
 
       {befund.vermutlichZurueck && (
@@ -143,6 +148,8 @@ export function Fahrzeug({ id }: { id: string }) {
             </button>
           ))}
       </section>
+
+      <MassnahmenAbschnitt vorgangId={v.id} massnahmen={massnahmen} offen={v.offen} />
 
       <section className="karte">
         <h2>Fotos</h2>

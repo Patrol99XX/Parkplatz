@@ -221,6 +221,55 @@ describe('Fremdparker und Mitarbeiter (Antreffen = Kalendertage)', () => {
   })
 })
 
+describe('erledigte Maßnahmen', () => {
+  const fertigGelb = (massnahmen: { typ: 'kunde_kontaktiert' | 'sb_angesprochen'; zeitpunkt: string }[]) =>
+    berechneAmpel(
+      eingabe({
+        klaerung: klaerung('fertig_kunde_informiert', t(MO, 10)),
+        sichtungen: [sicht(t(MO, 8), 'neu'), sicht(t(DI, 14))],
+        massnahmen,
+      }),
+    )
+
+  it('erledigter Vorschlag entfällt, gelbes Fahrzeug fällt von der Klärungsliste', () => {
+    expect(fertigGelb([{ typ: 'kunde_kontaktiert', zeitpunkt: t(DI, 15) }])).toMatchObject({
+      farbe: 'gelb',
+      vorschlag: null,
+      aufKlaerungsliste: false,
+    })
+  })
+
+  it('andere Maßnahme erledigt den Vorschlag nicht', () => {
+    expect(fertigGelb([{ typ: 'sb_angesprochen', zeitpunkt: t(DI, 15) }]).vorschlag).toBe('kunde_kontaktiert')
+  })
+
+  it('Maßnahme vor der neuesten Klärung zählt nicht', () => {
+    expect(fertigGelb([{ typ: 'kunde_kontaktiert', zeitpunkt: t(MO, 9) }]).vorschlag).toBe('kunde_kontaktiert')
+  })
+
+  it('rotes Fahrzeug bleibt nach Eskalation auf der Klärungsliste', () => {
+    const a = berechneAmpel(
+      eingabe({
+        kategorie: 'fremdparker',
+        sichtungen: [sicht(t(MO, 8), 'neu'), sicht(t(DI, 8)), sicht(t(MI, 8))],
+        massnahmen: [{ typ: 'eskalation_leitung', zeitpunkt: t(MI, 9) }],
+      }),
+    )
+    expect(a).toMatchObject({ farbe: 'rot', vorschlag: null, aufKlaerungsliste: true })
+  })
+
+  it('Mitarbeiter intern angesprochen → nicht mehr auf der Klärungsliste', () => {
+    const a = berechneAmpel(
+      eingabe({
+        kategorie: 'mitarbeiter',
+        sichtungen: [sicht(t(MO, 8), 'neu'), sicht(t(DI, 8))],
+        massnahmen: [{ typ: 'intern_angesprochen', zeitpunkt: t(DI, 9) }],
+      }),
+    )
+    expect(a).toMatchObject({ farbe: 'gelb', vorschlag: null, aufKlaerungsliste: false })
+  })
+})
+
 describe('Schwellen', () => {
   it('fehlende Einstellungen ergeben die Standardwerte', () => {
     expect(schwellenVon(undefined)).toEqual(STANDARD_SCHWELLEN)

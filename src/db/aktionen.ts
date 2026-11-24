@@ -1,10 +1,11 @@
 // Alle schreibenden Datenbankzugriffe an einer Stelle. Zusammengehörige Änderungen
 // laufen in einer Transaktion: Entweder wird alles gespeichert oder nichts.
 import { db } from './db'
-import type { Einstellungen, Kategorie, Runde, Schwellen, StellplatzBereich, RundenTyp, SichtungsErgebnis, Vorgang } from './typen'
+import type { Einstellungen, Kategorie, MassnahmeTyp, Runde, Schwellen, StellplatzBereich, RundenTyp, SichtungsErgebnis, Vorgang } from './typen'
 import { jetztIso, neueId } from '../logik/uuid'
 import { istOhneKennzeichen, normalisiereKennzeichen } from '../logik/kennzeichen'
 import { kategorieNachKlaerung, klaerungPruefen, type KlaerungEingabe } from '../logik/klaerung'
+import { massnahmePruefen } from '../logik/massnahme'
 
 // ---------- Einstellungen ----------
 
@@ -388,6 +389,28 @@ export async function klaerungEintragen(
       await db.vorgaenge.update(vorgangId, { kategorie: neueKategorie, geaendertAm: jetzt })
     }
   })
+}
+
+// ---------- Maßnahmen ----------
+
+export async function massnahmeEintragen(vorgangId: string, typ: MassnahmeTyp | null, notiz = '') {
+  const fehler = massnahmePruefen(typ, notiz)
+  if (fehler || !typ) throw new Error(fehler ?? 'Bitte eine Maßnahme wählen.')
+  const jetzt = jetztIso()
+  await db.massnahmen.add({
+    id: neueId(),
+    vorgangId,
+    typ,
+    zeitpunkt: jetzt,
+    notiz: notiz.trim(),
+    erstelltAm: jetzt,
+    geaendertAm: jetzt,
+  })
+}
+
+/** Nur für Fehleingaben, z. B. versehentlich getippt. */
+export async function massnahmeLoeschen(id: string) {
+  await db.massnahmen.delete(id)
 }
 
 /** Für Fehleingaben: entfernt den Vorgang mit allem, was daran hängt. */

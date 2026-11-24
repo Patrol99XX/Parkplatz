@@ -12,6 +12,7 @@ import {
   type Einstellungen,
   type Kategorie,
   type Klaerung,
+  type Massnahme,
   type MassnahmeTyp,
   type Schwellen,
   type Sichtung,
@@ -58,6 +59,8 @@ export interface AmpelEingabe {
   fruehereSichtungen?: SichtungKurz[]
   /** neueste Klärung oder null */
   klaerung: Pick<Klaerung, 'grund' | 'eingetragenAm'> | null
+  /** Maßnahmen zu diesem Vorgang – ein erledigter Vorschlag wird nicht mehr angezeigt */
+  massnahmen?: Pick<Massnahme, 'typ' | 'zeitpunkt'>[]
   schwellen: Schwellen
 }
 
@@ -74,6 +77,22 @@ function tagSchluessel(iso: string): string {
 }
 
 export function berechneAmpel(e: AmpelEingabe): Ampel {
+  return ohneErledigtenVorschlag(ampelNachRegeln(e), e)
+}
+
+/**
+ * Wurde die vorgeschlagene Maßnahme schon ergriffen (nach der neuesten Klärung), entfällt
+ * der Vorschlag. Gelbe Fahrzeuge sind damit von der Klärungsliste, rote bleiben darauf.
+ * Eine neue Klärung setzt das zurück – dann zählen nur Maßnahmen danach.
+ */
+function ohneErledigtenVorschlag(a: Ampel, e: AmpelEingabe): Ampel {
+  if (!a.vorschlag) return a
+  const seit = e.klaerung?.eingetragenAm ?? ''
+  const erledigt = (e.massnahmen ?? []).some((m) => m.typ === a.vorschlag && m.zeitpunkt >= seit)
+  return erledigt ? { ...a, vorschlag: null, aufKlaerungsliste: a.farbe === 'rot' } : a
+}
+
+function ampelNachRegeln(e: AmpelEingabe): Ampel {
   const da = anwesend(e.sichtungen)
   // Letzte Sichtung; ohne Sichtung (z. B. alte Daten) zählt die Ersterfassung.
   const letzte = new Date(
