@@ -12,6 +12,7 @@ import { Sicherung } from './seiten/Sicherung'
 import { Einstellungen } from './seiten/Einstellungen'
 import { Klaerungsliste } from './seiten/Klaerung'
 import { klaerungslisteLaden } from './db/ampelDaten'
+import { bereinigen } from './db/aktionen'
 
 export function App() {
   const pfad = usePfad()
@@ -22,6 +23,8 @@ export function App() {
   useEffect(() => {
     // Bittet Safari, die Daten nicht automatisch zu löschen, wenn Speicher knapp wird.
     navigator.storage?.persist?.().catch(() => {})
+    // Aufbewahrungsfristen: abgelaufene Fotos und Vorgänge beim Start löschen (Datenschutz)
+    bereinigen().catch((e) => console.error('Bereinigung fehlgeschlagen', e))
   }, [])
 
   const [seite, id] = pfad

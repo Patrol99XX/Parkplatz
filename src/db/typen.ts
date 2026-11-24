@@ -135,6 +135,8 @@ export interface Einstellungen extends Zeitstempel {
   platzHochzaehlen?: boolean
   /** Ampel-Schwellen. Fehlt bei älteren Daten – dann gelten die Standardwerte (schwellenVon). */
   schwellen?: Partial<Schwellen>
+  /** Letzte automatische Bereinigung, bei der etwas gelöscht wurde (Anzeige in den Einstellungen) */
+  letzteBereinigung?: { am: string; vorgaenge: number; fotos: number; runden: number }
 }
 
 export const RUNDEN_TYP_TEXT: Record<RundenTyp, string> = {

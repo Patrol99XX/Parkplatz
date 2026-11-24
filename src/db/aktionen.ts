@@ -6,6 +6,7 @@ import { jetztIso, neueId } from '../logik/uuid'
 import { istOhneKennzeichen, normalisiereKennzeichen } from '../logik/kennzeichen'
 import { kategorieNachKlaerung, klaerungPruefen, type KlaerungEingabe } from '../logik/klaerung'
 import { massnahmePruefen } from '../logik/massnahme'
+import { bereinigungPlanen } from '../logik/bereinigung'
 
 // ---------- Einstellungen ----------
 
@@ -88,6 +89,64 @@ export async function schwelleSetzen(name: keyof Schwellen, wert: number) {
 export async function schwellenZuruecksetzen() {
   await einstellungenAendern((e) => {
     delete e.schwellen
+  })
+}
+
+export async function aufbewahrungSetzen(fotosTage: number, vorgaengeTage: number) {
+  await einstellungenAendern((e) => {
+    e.aufbewahrung = { fotosTage, vorgaengeTage }
+  })
+}
+
+// ---------- Aufbewahrung ----------
+
+/**
+ * Löscht abgelaufene Daten (Fristen aus den Einstellungen) und merkt sich das Ergebnis.
+ * Läuft bei jedem App-Start; ist nichts abgelaufen, passiert nichts.
+ * Alles in einer Transaktion: Bricht etwas ab, bleibt der alte Stand vollständig erhalten.
+ */
+export async function bereinigen(jetzt = new Date()) {
+  const tabellen = [db.einstellungen, db.vorgaenge, db.sichtungen, db.runden, db.fotos, db.klaerungen, db.massnahmen]
+  return db.transaction('rw', tabellen, async () => {
+    const e = await db.einstellungen.get('app')
+    if (!e) return null
+    const vorgaenge = await db.vorgaenge.toArray()
+    const runden = await db.runden.toArray()
+    const rundenMitSichtungen = new Map<string, string[]>()
+    await db.sichtungen.each((s) => {
+      rundenMitSichtungen.set(s.rundeId, [...(rundenMitSichtungen.get(s.rundeId) ?? []), s.vorgangId])
+    })
+    const plan = bereinigungPlanen(vorgaenge, runden, rundenMitSichtungen, e.aufbewahrung, jetzt)
+
+    if (plan.vorgangIds.length) {
+      await db.sichtungen.where('vorgangId').anyOf(plan.vorgangIds).delete()
+      await db.fotos.where('vorgangId').anyOf(plan.vorgangIds).delete()
+      await db.klaerungen.where('vorgangId').anyOf(plan.vorgangIds).delete()
+      await db.massnahmen.where('vorgangId').anyOf(plan.vorgangIds).delete()
+      await db.vorgaenge.bulkDelete(plan.vorgangIds)
+    }
+    let fotos = 0
+    if (plan.fotoVorgangIds.length) {
+      fotos = await db.fotos.where('vorgangId').anyOf(plan.fotoVorgangIds).delete()
+      const zeit = jetzt.toISOString()
+      await db.vorgaenge
+        .where('id')
+        .anyOf(plan.fotoVorgangIds)
+        .modify({ fotoIds: [], geaendertAm: zeit })
+    }
+    if (plan.rundenIds.length) await db.runden.bulkDelete(plan.rundenIds)
+
+    const ergebnis = {
+      am: jetzt.toISOString(),
+      vorgaenge: plan.vorgangIds.length,
+      fotos,
+      runden: plan.rundenIds.length,
+    }
+    // Nur merken, wenn wirklich etwas gelöscht wurde – sonst stünde nach jedem Start „0“ da
+    if (ergebnis.vorgaenge + ergebnis.fotos + ergebnis.runden > 0) {
+      await db.einstellungen.update('app', { letzteBereinigung: ergebnis })
+    }
+    return ergebnis
   })
 }
 

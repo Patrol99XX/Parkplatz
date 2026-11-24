@@ -10,9 +10,12 @@ import {
   ebeneUmbenennen,
   ebeneVerschieben,
   platzHochzaehlenSetzen,
+  aufbewahrungSetzen,
   schwelleSetzen,
   schwellenZuruecksetzen,
 } from '../db/aktionen'
+import { MIN_FOTOS_TAGE, MIN_VORGAENGE_TAGE } from '../logik/bereinigung'
+import { formatDatumZeit } from '../logik/zeit'
 import type { Ebene, Einstellungen as EinstellungenDaten, Schwellen } from '../db/typen'
 import { platzText } from '../logik/stellplatz'
 import { schwellenVon, STANDARD_SCHWELLEN } from '../logik/ampel'
@@ -122,6 +125,8 @@ export function Einstellungen() {
       </section>
 
       <AmpelSchwellen einstellungen={einstellungen} />
+
+      <Aufbewahrung einstellungen={einstellungen} />
 
       <section className="karte">
         <h2>Bericht per E-Mail</h2>
@@ -271,6 +276,67 @@ function AmpelSchwellen({ einstellungen }: { einstellungen: EinstellungenDaten }
           Standardwerte wiederherstellen
         </button>
       )}
+    </section>
+  )
+}
+
+/** Aufbewahrungsfristen (Datenschutz) und Ergebnis der letzten automatischen Bereinigung. */
+function Aufbewahrung({ einstellungen }: { einstellungen: EinstellungenDaten }) {
+  const { fotosTage, vorgaengeTage } = einstellungen.aufbewahrung
+  const letzte = einstellungen.letzteBereinigung
+  const zahl = (wert: string) => {
+    const n = Number(wert)
+    return Number.isInteger(n) ? n : NaN
+  }
+  return (
+    <section className="karte">
+      <h2>Aufbewahrung</h2>
+      <p className="klein">
+        Kennzeichen und Fotos sind personenbezogene Daten. Nach Ende eines Vorgangs (Fahrzeug „weg“)
+        werden sie beim App-Start automatisch gelöscht. Fahrzeuge auf dem Gelände bleiben immer.
+        Vorher sichern, wenn die Daten länger gebraucht werden.
+      </p>
+      <div className="schwellen">
+        <label>
+          <span>Fotos löschen nach</span>
+          <span className="schwelle-wert">
+            <input
+              inputMode="numeric"
+              defaultValue={fotosTage}
+              key={`f-${fotosTage}`}
+              onBlur={(ev) => {
+                const n = zahl(ev.target.value)
+                if (n >= MIN_FOTOS_TAGE && n <= vorgaengeTage) {
+                  if (n !== fotosTage) aufbewahrungSetzen(n, vorgaengeTage)
+                } else ev.target.value = String(fotosTage)
+              }}
+            />
+            <span className="klein">Tagen</span>
+          </span>
+        </label>
+        <label>
+          <span>Vorgänge löschen nach</span>
+          <span className="schwelle-wert">
+            <input
+              inputMode="numeric"
+              defaultValue={vorgaengeTage}
+              key={`v-${vorgaengeTage}`}
+              onBlur={(ev) => {
+                const n = zahl(ev.target.value)
+                if (n >= Math.max(MIN_VORGAENGE_TAGE, fotosTage)) {
+                  if (n !== vorgaengeTage) aufbewahrungSetzen(fotosTage, n)
+                } else ev.target.value = String(vorgaengeTage)
+              }}
+            />
+            <span className="klein">Tagen (mind. {MIN_VORGAENGE_TAGE}, wegen Wiederholer-Erkennung)</span>
+          </span>
+        </label>
+      </div>
+      <p className="klein" style={{ marginBottom: 0 }}>
+        {letzte
+          ? `Zuletzt gelöscht am ${formatDatumZeit(letzte.am)}: ${letzte.vorgaenge} ${letzte.vorgaenge === 1 ? 'Vorgang' : 'Vorgänge'}, ${letzte.fotos} ${letzte.fotos === 1 ? 'Foto' : 'Fotos'}, ${letzte.runden} ${letzte.runden === 1 ? 'Kontrolle' : 'Kontrollen'}.`
+          : 'Bisher musste nichts gelöscht werden.'}
+      </p>
     </section>
   )
 }
