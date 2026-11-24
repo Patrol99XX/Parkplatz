@@ -54,7 +54,8 @@ fortlaufenden Nummern).
 - **Klaerung**: id, vorgangId, grund (siehe unten), serviceberater (Freitext),
   eingetragenAm, notiz. Ein Vorgang kann mehrere Klärungen haben; die neueste gilt.
 - **Massnahme**: id, vorgangId, typ (`hinweiszettel` | `sb_angesprochen` |
-  `kunde_kontaktiert` | `eskalation_leitung` | `sonstiges`), zeitpunkt, notiz
+  `kunde_kontaktiert` | `eskalation_leitung` | `intern_angesprochen` | `sonstiges`),
+  zeitpunkt, notiz
 - **Foto**: id, vorgangId, blob, aufgenommenAm
 - **Einstellungen**: Ebenen (Liste, frei benennbar), Eskalationsschwellen,
   Aufbewahrungsfristen, berichtEmpfaenger (E-Mail für den Bericht nach der Kontrolle)
@@ -68,7 +69,8 @@ Standard-Ebenen (in den Einstellungen änderbar): „Parkhaus Ebene 0“, „Par
 - `in_bearbeitung_extern` – z. B. Fremdleistung, Lack
 - `fertig_kunde_informiert` – ab Eintrag läuft die Abholfrist
 - `fertig_kunde_nicht_erreicht` – ab Eintrag läuft die Abholfrist
-- `kein_kunde` – setzt Kategorie auf Fremdparker oder Mitarbeiter
+- `kein_kunde` – Kategorie Fremdparker oder Mitarbeiter kann gewählt werden (optional,
+  ohne Auswahl gelten die Fremdparker-Regeln)
 - `sonstiges` (Notiz Pflicht)
 
 ## Kernabläufe
@@ -121,14 +123,19 @@ Mit Klärung `fertig_*` (Abholfrist ab Zeitpunkt der Klärung):
 Mit Klärung `nicht_bearbeitet`, `wartet_auf_teile`, `in_bearbeitung_extern`, `sonstiges`:
 - gelb, erscheint bei jeder Morgenkontrolle erneut auf der Klärungsliste, bis sich der
   Grund ändert oder das Fahrzeug weg ist
-- rot ab dem dritten Kalendertag nach Ersterfassung
+- rot ab dem dritten Kalendertag nach Ersterfassung (Erfassung Montag → rot ab Donnerstag)
 
-Fremdparker:
-- 2. Antreffen → Maßnahme Hinweiszettel vorschlagen
+Fremdparker (Kategorie oder Klärung `kein_kunde`):
+- „Antreffen“ = Kalendertage, an denen das Kennzeichen gesehen wurde; frühere Aufenthalte
+  derselben Nummer in den letzten 30 Tagen zählen mit
+- 2. Antreffen → gelb, keine Maßnahme (es gibt keine Hinweiszettel)
 - 3. Antreffen → rot, Eskalation vorschlagen
 
 Mitarbeiter:
-- wie Fremdparker, aber ohne Hinweiszettel; stattdessen Maßnahme „intern angesprochen“
+- wie Fremdparker, beim 2. Antreffen zusätzlich Maßnahme „intern angesprochen“ vorschlagen
+
+Bezugszeitpunkt ist immer die letzte Sichtung (neu/noch da), nicht die aktuelle Uhrzeit:
+Die Ampel ändert sich nur durch eine Kontrolle oder eine Klärung.
 
 ### Klärungsliste
 - Wird nach jeder Runde erzeugt, sortiert nach Ampel (rot zuerst), dann nach Standdauer.
@@ -139,8 +146,12 @@ Mitarbeiter:
 - Klärungsgrund direkt aus der Liste eintragbar.
 
 ### Hinweiszettel
-- Druckvorlage DIN A5 mit Kennzeichen, Datum, Ebene und einem festen Text (in den
-  Einstellungen bearbeitbar). Erzeugt automatisch eine Maßnahme `hinweiszettel`.
+- Entfällt (Entscheidung 24.11.2026): Es werden keine Hinweiszettel verteilt. Der Typ
+  `hinweiszettel` bleibt nur im Datenmodell, wird aber nicht angeboten.
+
+### E-Mail-Bericht
+- Bleibt in Stufe 2 unverändert (alle Fahrzeuge seit gestern oder länger), weil das
+  CARE-Abgleich-Skript den Text liest.
 
 ## Datenschutz und Datensicherung
 - Kennzeichen und Fotos sind personenbezogene Daten. Es werden keine Namen von Kunden
@@ -160,8 +171,8 @@ Rundgang-Modus, Kennzeichen-Erkennung, Übersicht offener Fahrzeuge mit laufende
 Standdauer, JSON-Export/Import, PWA, Deployment auf GitHub Pages.
 
 **Stufe 2 – Klärung und Eskalation**
-Ampel-Logik mit Tests, Klärungsliste, Klärungsgründe, Maßnahmen, Hinweiszettel,
-Druckansichten, einstellbare Schwellen, Aufbewahrungsfristen.
+Ampel-Logik mit Tests, Klärungsliste, Klärungsgründe, Maßnahmen,
+Druckansicht der Klärungsliste, einstellbare Schwellen, Aufbewahrungsfristen.
 
 **Stufe 3 – Auswertung**
 Belegung je Ebene und Tag, durchschnittliche Standdauer je Kategorie und Klärungsgrund,
