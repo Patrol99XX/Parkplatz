@@ -19,6 +19,7 @@ import { KLAERUNGS_GRUENDE, klaerungPruefen } from '../logik/klaerung'
 import { formatDatumZeit, standdauerText } from '../logik/zeit'
 import { AmpelAnzeige, Auswahl, FotoAusDb, Kopf, mitFehlermeldung } from '../komponenten'
 import { VorschlagErledigt } from './Massnahme'
+import { KlaerungsDruck } from './KlaerungsDruck'
 
 // ---------- Formular ----------
 
@@ -175,6 +176,13 @@ export function KlaerungsListe() {
         Stand {formatDatumZeit(jetzt)} · {eintraege.length} {eintraege.length === 1 ? 'Fahrzeug' : 'Fahrzeuge'}
         {rot > 0 && `, davon ${rot} rot`}
       </p>
+      <button type="button" className="knopf zweitrangig" onClick={() => window.print()}>
+        🖨️ Drucken oder als PDF teilen
+      </button>
+      <p className="klein">
+        Auf dem iPad im Druckfenster oben auf „Teilen“ tippen – dann entsteht ein PDF für Mail oder Dateien.
+      </p>
+      <KlaerungsDruck eintraege={eintraege} einstellungen={einstellungen} jetzt={jetzt} />
       <div className="raster">
         {eintraege.map((e) => (
           <Eintrag key={e.vorgang.id} eintrag={e} einstellungen={einstellungen} jetzt={jetzt} />

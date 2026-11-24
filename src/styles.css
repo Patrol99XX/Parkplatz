@@ -905,3 +905,97 @@ label.feld > span,
   align-self: flex-start;
   margin-top: 8px;
 }
+
+/* ---------- Druckansicht Klärungsliste ----------
+   Auf dem Bildschirm unsichtbar. Beim Drucken wird die App (#root) ausgeblendet und nur
+   die Drucktabelle gezeigt – aber nur, wenn es sie gibt (:has), sonst bliebe das Blatt leer. */
+#druck-wurzel {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+
+  body:has(#druck-wurzel) {
+    background: #fff;
+  }
+  body:has(#druck-wurzel) > #root {
+    display: none;
+  }
+  #druck-wurzel {
+    display: block;
+    font-size: 9.5pt;
+    line-height: 1.25;
+    color: #000;
+  }
+
+  .druck-kopf h1 {
+    font-size: 14pt;
+    margin: 0 0 2mm;
+  }
+  .druck-kopf p {
+    margin: 0 0 4mm;
+  }
+
+  .druck-tabelle {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  /* Kopfzeile auf jeder Seite wiederholen, Zeilen nicht über Seiten zerreißen */
+  .druck-tabelle thead {
+    display: table-header-group;
+  }
+  .druck-tabelle tr {
+    break-inside: avoid;
+  }
+  .druck-tabelle th,
+  .druck-tabelle td {
+    border: 0.5pt solid #000;
+    padding: 1.5mm 2mm;
+    text-align: left;
+    vertical-align: top;
+  }
+  .druck-tabelle th {
+    background: #eee;
+    font-size: 8.5pt;
+  }
+  .druck-tabelle .kennzeichen {
+    font-size: 11pt;
+  }
+
+  /* Ampel als Text (für Schwarz-Weiß-Drucker) und farbiger Balken, wo Farbe geht */
+  .druck-tabelle .ampel-zelle {
+    font-weight: 700;
+    width: 14mm;
+    border-left-width: 3mm;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .druck-tabelle tr.rot .ampel-zelle {
+    border-left-color: var(--rot);
+  }
+  .druck-tabelle tr.gelb .ampel-zelle {
+    border-left-color: var(--gelb);
+  }
+  .druck-tabelle tr.gruen .ampel-zelle {
+    border-left-color: var(--gruen);
+  }
+
+  .druck-tabelle .foto-zelle {
+    width: 22mm;
+  }
+  .druck-tabelle .foto-zelle img {
+    width: 20mm;
+    height: 15mm;
+    object-fit: cover;
+    display: block;
+  }
+
+  /* Platz zum Ausfüllen per Hand */
+  .druck-tabelle .rueckmeldung {
+    width: 55mm;
+  }
+}
