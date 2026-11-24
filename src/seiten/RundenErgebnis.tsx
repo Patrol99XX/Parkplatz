@@ -5,10 +5,11 @@ import { ERGEBNIS_TEXT, RUNDEN_TYP_TEXT, type SichtungsErgebnis } from '../db/ty
 import { formatDatum, formatZeit } from '../logik/zeit'
 import { Kopf } from '../komponenten'
 import { berichtErstellen, langeStehende, mailtoLink } from '../logik/bericht'
+import { KlaerungsListe } from './Klaerung'
 
 const REIHENFOLGE: SichtungsErgebnis[] = ['neu', 'noch_da', 'weg']
 
-/** Ergebnis einer abgeschlossenen Kontrolle. Die Klärungsliste kommt in Stufe 2 hinzu. */
+/** Ergebnis einer abgeschlossenen Kontrolle mit der Klärungsliste (aktueller Stand). */
 export function RundenErgebnis({ id }: { id: string }) {
   const einstellungen = useEinstellungen()
   const daten = useLiveQuery(async () => {
@@ -81,6 +82,11 @@ export function RundenErgebnis({ id }: { id: string }) {
             </>
           )}
         </p>
+      </section>
+
+      <section>
+        <h2 className="gruppe-titel">Klärungsliste</h2>
+        <KlaerungsListe />
       </section>
 
       <div className="zahlen">

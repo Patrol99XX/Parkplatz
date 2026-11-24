@@ -2,8 +2,8 @@
 // Fahrzeuge auf einmal. Statt einer Abfrage pro Fahrzeug gibt es nur wenige Abfragen
 // für alle zusammen („anyOf“) – bei ca. 150 Fahrzeugen merkt man den Unterschied.
 import { db } from './db'
-import type { Klaerung, Sichtung, Vorgang } from './typen'
-import { berechneAmpel, schwellenVon, type Ampel } from '../logik/ampel'
+import type { Klaerung, Massnahme, Sichtung, Vorgang } from './typen'
+import { berechneAmpel, nachDringlichkeit, schwellenVon, type Ampel } from '../logik/ampel'
 import { istOhneKennzeichen, WIEDERHOLER_TAGE } from '../logik/kennzeichen'
 
 const TAG = 24 * 60 * 60 * 1000
@@ -71,4 +71,35 @@ export async function ampelnLaden(vorgaenge: Vorgang[]): Promise<AmpelErgebnis> 
     )
   }
   return { ampeln, klaerungen }
+}
+
+export interface KlaerungsEintrag {
+  vorgang: Vorgang
+  ampel: Ampel
+  klaerung: Klaerung | null
+  massnahme: Massnahme | null
+}
+
+/**
+ * Klärungsliste: alle offenen Fahrzeuge, die laut Ampel geklärt werden müssen,
+ * rot zuerst, dann nach Standdauer. Wird immer aus dem aktuellen Stand berechnet.
+ */
+export async function klaerungslisteLaden(): Promise<KlaerungsEintrag[]> {
+  const offene = await db.vorgaenge.filter((v) => v.offen).toArray()
+  const { ampeln, klaerungen } = await ampelnLaden(offene)
+  const aufListe = offene.filter((v) => ampeln.get(v.id)?.aufKlaerungsliste)
+  const massnahmen = new Map<string, Massnahme>()
+  for (const m of await db.massnahmen.where('vorgangId').anyOf(aufListe.map((v) => v.id)).toArray()) {
+    const bisher = massnahmen.get(m.vorgangId)
+    if (!bisher || m.zeitpunkt > bisher.zeitpunkt) massnahmen.set(m.vorgangId, m)
+  }
+  return aufListe
+    .map((v) => ({
+      vorgang: v,
+      ampel: ampeln.get(v.id)!,
+      klaerung: klaerungen.get(v.id) ?? null,
+      massnahme: massnahmen.get(v.id) ?? null,
+      ersterfasstAm: v.ersterfasstAm,
+    }))
+    .sort(nachDringlichkeit)
 }

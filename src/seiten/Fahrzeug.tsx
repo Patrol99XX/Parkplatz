@@ -10,6 +10,7 @@ import { AmpelAnzeige, Auswahl, FotoAufnahme, FotoAusDb, FotoVollbild, Hinweis, 
 import { ampelnLaden } from '../db/ampelDaten'
 import { geheZu } from '../navigation'
 import { OrtAendern } from './Rundgang'
+import { KlaerungFormular, klaerungText } from './Klaerung'
 
 const KATEGORIEN: Kategorie[] = ['unbekannt', 'kunde', 'mitarbeiter', 'fremdparker']
 
@@ -19,6 +20,7 @@ export function Fahrzeug({ id }: { id: string }) {
   const [vollbild, setVollbild] = useState<string | null>(null)
   const [kzBearbeiten, setKzBearbeiten] = useState(false)
   const [ortBearbeiten, setOrtBearbeiten] = useState(false)
+  const [klaerungOffen, setKlaerungOffen] = useState(false)
 
   const daten = useLiveQuery(async () => {
     const vorgang = await db.vorgaenge.get(id)
@@ -32,7 +34,11 @@ export function Fahrzeug({ id }: { id: string }) {
     const befund = pruefeKennzeichen(gleichesKz, new Date(vorgang.ersterfasstAm), vorgang.id)
     // Ampel nur, solange das Fahrzeug da ist
     const ampel = vorgang.offen ? (await ampelnLaden([vorgang])).ampeln.get(vorgang.id) : undefined
-    return { vorgang, verlauf, befund, ampel }
+    // Alle Klärungen, neueste zuerst – die oberste gilt
+    const klaerungen = (await db.klaerungen.where('vorgangId').equals(id).toArray()).sort((a, b) =>
+      b.eingetragenAm.localeCompare(a.eingetragenAm),
+    )
+    return { vorgang, verlauf, befund, ampel, klaerungen }
   }, [id])
 
   if (!einstellungen || !daten) return null
@@ -44,7 +50,7 @@ export function Fahrzeug({ id }: { id: string }) {
       </>
     )
   }
-  const { vorgang: v, verlauf, befund, ampel } = daten
+  const { vorgang: v, verlauf, befund, ampel, klaerungen } = daten
   const aendern = (a: Parameters<typeof vorgangAendern>[1]) => mitFehlermeldung(() => vorgangAendern(v.id, a))
 
   return (
@@ -106,6 +112,37 @@ export function Fahrzeug({ id }: { id: string }) {
           ))}
         </Hinweis>
       )}
+
+      <section className="karte">
+        <h2>Klärung</h2>
+        {klaerungen.length === 0 ? (
+          <p className="klein">Noch keine Klärung eingetragen.</p>
+        ) : (
+          <ul className="verlauf">
+            {klaerungen.map((k, i) => (
+              <li key={k.id} className={i > 0 ? 'veraltet' : ''}>
+                <span>
+                  {i === 0 ? <strong>{klaerungText(k)}</strong> : klaerungText(k)}
+                  {k.notiz && (
+                    <>
+                      <br />
+                      <span className="klein">{k.notiz}</span>
+                    </>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {v.offen &&
+          (klaerungOffen ? (
+            <KlaerungFormular vorgang={v} vorher={klaerungen[0] ?? null} fertig={() => setKlaerungOffen(false)} />
+          ) : (
+            <button type="button" className="knopf zweitrangig" onClick={() => setKlaerungOffen(true)}>
+              {klaerungen.length ? 'Neue Klärung eintragen' : 'Klärung eintragen'}
+            </button>
+          ))}
+      </section>
 
       <section className="karte">
         <h2>Fotos</h2>

@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { useLiveQuery } from 'dexie-react-hooks'
 import { usePfad } from './navigation'
 import { HamburgSkyline } from './hamburg'
 import { useAktiveRunde } from './db/hooks'
@@ -9,10 +10,14 @@ import { Fahrzeug } from './seiten/Fahrzeug'
 import { RundenErgebnis } from './seiten/RundenErgebnis'
 import { Sicherung } from './seiten/Sicherung'
 import { Einstellungen } from './seiten/Einstellungen'
+import { Klaerungsliste } from './seiten/Klaerung'
+import { klaerungslisteLaden } from './db/ampelDaten'
 
 export function App() {
   const pfad = usePfad()
   const runde = useAktiveRunde()
+  // Anzahl auf dem Reiter: so sieht man von jeder Seite, ob etwas zu klären ist
+  const zuKlaeren = useLiveQuery(async () => (await klaerungslisteLaden()).length)
 
   useEffect(() => {
     // Bittet Safari, die Daten nicht automatisch zu löschen, wenn Speicher knapp wird.
@@ -33,6 +38,9 @@ export function App() {
       break
     case 'runde':
       inhalt = <RundenErgebnis id={id} />
+      break
+    case 'klaerung':
+      inhalt = <Klaerungsliste />
       break
     case 'sicherung':
       inhalt = <Sicherung />
@@ -59,6 +67,15 @@ export function App() {
         >
           <span aria-hidden>📋</span>
           Rundgang{runde && <i className="punkt" aria-label="läuft" />}
+        </a>
+        <a href="#/klaerung" className={seite === 'klaerung' ? 'aktiv' : ''}>
+          <span aria-hidden>❓</span>
+          Klärung
+          {!!zuKlaeren && (
+            <i className="zahl-marke" aria-label={`${zuKlaeren} zu klären`}>
+              {zuKlaeren}
+            </i>
+          )}
         </a>
         <a href="#/sicherung" className={seite === 'sicherung' ? 'aktiv' : ''}>
           <span aria-hidden>💾</span>

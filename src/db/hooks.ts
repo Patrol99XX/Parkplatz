@@ -42,3 +42,14 @@ export function useModellVorschlaege() {
     return [...modelle].sort((a, b) => a.localeCompare(b, 'de'))
   }, [])
 }
+
+/** Bisher eingetragene Serviceberater, für die Vorschlagsliste im Klärungsformular. */
+export function useSbVorschlaege() {
+  return useLiveQuery(async () => {
+    const namen = new Set<string>()
+    await db.klaerungen.each((k) => {
+      if (k.serviceberater) namen.add(k.serviceberater)
+    })
+    return [...namen].sort((a, b) => a.localeCompare(b, 'de'))
+  }, [])
+}

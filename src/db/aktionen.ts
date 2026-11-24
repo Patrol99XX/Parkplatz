@@ -4,6 +4,7 @@ import { db } from './db'
 import type { Einstellungen, Kategorie, Runde, Schwellen, StellplatzBereich, RundenTyp, SichtungsErgebnis, Vorgang } from './typen'
 import { jetztIso, neueId } from '../logik/uuid'
 import { istOhneKennzeichen, normalisiereKennzeichen } from '../logik/kennzeichen'
+import { kategorieNachKlaerung, klaerungPruefen, type KlaerungEingabe } from '../logik/klaerung'
 
 // ---------- Einstellungen ----------
 
@@ -351,6 +352,41 @@ export async function fotoLoeschen(vorgangId: string, fotoId: string) {
       fotoIds: v.fotoIds.filter((x) => x !== fotoId),
       geaendertAm: jetztIso(),
     })
+  })
+}
+
+// ---------- Klärungen ----------
+
+/**
+ * Neue Klärung zu einem Vorgang. Ältere Klärungen bleiben als Verlauf erhalten; es gilt
+ * immer die neueste. Die Kategorie des Fahrzeugs wird passend nachgezogen.
+ */
+export async function klaerungEintragen(
+  vorgangId: string,
+  eingabe: KlaerungEingabe,
+  kategorie: Kategorie | null = null,
+) {
+  const fehler = klaerungPruefen(eingabe)
+  if (fehler || !eingabe.grund) throw new Error(fehler ?? 'Bitte einen Grund wählen.')
+  const grund = eingabe.grund
+  await db.transaction('rw', db.vorgaenge, db.klaerungen, async () => {
+    const v = await db.vorgaenge.get(vorgangId)
+    if (!v) throw new Error('Das Fahrzeug gibt es nicht mehr.')
+    const jetzt = jetztIso()
+    await db.klaerungen.add({
+      id: neueId(),
+      vorgangId,
+      grund,
+      serviceberater: eingabe.serviceberater.trim(),
+      eingetragenAm: jetzt,
+      notiz: eingabe.notiz.trim(),
+      erstelltAm: jetzt,
+      geaendertAm: jetzt,
+    })
+    const neueKategorie = kategorieNachKlaerung(grund, v.kategorie, kategorie)
+    if (neueKategorie !== v.kategorie) {
+      await db.vorgaenge.update(vorgangId, { kategorie: neueKategorie, geaendertAm: jetzt })
+    }
   })
 }
 

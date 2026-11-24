@@ -841,3 +841,61 @@ label.feld > span,
   flex: 0 0 80px;
   text-align: center;
 }
+
+/* ---------- Klärung ---------- */
+.klaerung-eintrag {
+  background: #fff;
+  border: 2px solid var(--rand);
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.klaerung-eintrag .kopfteil {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  color: inherit;
+  text-decoration: none;
+}
+.klaerung-eintrag .angaben {
+  min-width: 0;
+}
+.klaerung-eintrag > .knopf {
+  align-self: flex-start;
+}
+
+.klaerung-formular {
+  border-top: 1px solid var(--grau-hell);
+  padding-top: 10px;
+  margin-top: 4px;
+}
+
+.fehler-text {
+  color: var(--rot);
+  font-weight: 700;
+}
+
+.verlauf li.veraltet {
+  color: var(--grau);
+}
+
+/* Anzahl auf dem Reiter „Klärung“ */
+.zahl-marke {
+  position: absolute;
+  top: 4px;
+  left: calc(50% + 6px);
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 10px;
+  background: var(--akzent);
+  color: #fff;
+  font-style: normal;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
+}
