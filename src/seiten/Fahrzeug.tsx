@@ -6,7 +6,8 @@ import { fotoHinzufuegen, fotoLoeschen, vorgangAendern, vorgangLoeschen } from '
 import { ERGEBNIS_TEXT, KATEGORIE_TEXT, RUNDEN_TYP_TEXT, type Kategorie, type Vorgang } from '../db/typen'
 import { pruefeKennzeichen } from '../logik/kennzeichen'
 import { formatDatum, formatDatumZeit, standdauerText } from '../logik/zeit'
-import { Auswahl, FotoAufnahme, FotoAusDb, FotoVollbild, Hinweis, Kopf, mitFehlermeldung } from '../komponenten'
+import { AmpelAnzeige, Auswahl, FotoAufnahme, FotoAusDb, FotoVollbild, Hinweis, Kopf, mitFehlermeldung } from '../komponenten'
+import { ampelnLaden } from '../db/ampelDaten'
 import { geheZu } from '../navigation'
 import { OrtAendern } from './Rundgang'
 
@@ -29,7 +30,9 @@ export function Fahrzeug({ id }: { id: string }) {
       .sort((a, b) => b.sichtung.zeitpunkt.localeCompare(a.sichtung.zeitpunkt))
     const gleichesKz = await db.vorgaenge.where('kennzeichen').equals(vorgang.kennzeichen).toArray()
     const befund = pruefeKennzeichen(gleichesKz, new Date(vorgang.ersterfasstAm), vorgang.id)
-    return { vorgang, verlauf, befund }
+    // Ampel nur, solange das Fahrzeug da ist
+    const ampel = vorgang.offen ? (await ampelnLaden([vorgang])).ampeln.get(vorgang.id) : undefined
+    return { vorgang, verlauf, befund, ampel }
   }, [id])
 
   if (!einstellungen || !daten) return null
@@ -41,7 +44,7 @@ export function Fahrzeug({ id }: { id: string }) {
       </>
     )
   }
-  const { vorgang: v, verlauf, befund } = daten
+  const { vorgang: v, verlauf, befund, ampel } = daten
   const aendern = (a: Parameters<typeof vorgangAendern>[1]) => mitFehlermeldung(() => vorgangAendern(v.id, a))
 
   return (
@@ -76,6 +79,11 @@ export function Fahrzeug({ id }: { id: string }) {
             ? `${standdauerText(v.ersterfasstAm, new Date())} · ${ortText(einstellungen, v)}`
             : `${formatDatumZeit(v.ersterfasstAm)} bis ${v.beendetAm ? formatDatumZeit(v.beendetAm) : '–'}`}
         </p>
+        {ampel && (
+          <p style={{ marginBottom: 0 }}>
+            <AmpelAnzeige ampel={ampel} mitVorschlag />
+          </p>
+        )}
       </section>
 
       {befund.vermutlichZurueck && (

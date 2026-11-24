@@ -5,7 +5,9 @@ import { KATEGORIE_TEXT, RUNDEN_TYP_TEXT, type Vorgang } from '../db/typen'
 import { formatDatum, formatZeit, standdauerText } from '../logik/zeit'
 import { sicherungFaellig } from '../logik/sicherung'
 import { nachPlatz } from '../logik/stellplatz'
-import { FotoAusDb, Hinweis } from '../komponenten'
+import { AmpelAnzeige, FotoAusDb, Hinweis } from '../komponenten'
+import { ampelnLaden } from '../db/ampelDaten'
+import type { Ampel } from '../logik/ampel'
 import { HamburgSkyline } from '../hamburg'
 
 export function Uebersicht() {
@@ -19,11 +21,15 @@ export function Uebersicht() {
     const gesehen = new Map<string, number>()
     for (const s of sichtungen) if (s.ergebnis !== 'weg') gesehen.set(s.vorgangId, (gesehen.get(s.vorgangId) ?? 0) + 1)
     const gesamt = await db.vorgaenge.count()
-    return { vorgaenge, gesehen, gesamt }
+    const { ampeln } = await ampelnLaden(vorgaenge)
+    return { vorgaenge, gesehen, gesamt, ampeln }
   })
 
   if (!einstellungen || !daten || runde === undefined) return null
-  const { vorgaenge, gesehen } = daten
+  const { vorgaenge, gesehen, ampeln } = daten
+  const anzahl = (farbe: Ampel['farbe']) => vorgaenge.filter((v) => ampeln.get(v.id)?.farbe === farbe).length
+  const rot = anzahl('rot')
+  const gelb = anzahl('gelb')
   const jetzt = new Date()
 
   const ids = einstellungen.ebenen.map((e) => e.id)
@@ -68,6 +74,13 @@ export function Uebersicht() {
 
       <p>
         <strong>{vorgaenge.length}</strong> {vorgaenge.length === 1 ? 'Fahrzeug' : 'Fahrzeuge'} auf dem Gelände
+        {(rot > 0 || gelb > 0) && (
+          <>
+            {' · '}
+            <span className="ampel-zaehler rot">{rot} rot</span>{' '}
+            <span className="ampel-zaehler gelb">{gelb} gelb</span>
+          </>
+        )}
       </p>
 
       {gruppen.map((g) => (
@@ -83,6 +96,7 @@ export function Uebersicht() {
                 vorgang={v}
                 platz={platzVon(einstellungen, v)}
                 gesehen={gesehen.get(v.id) ?? 0}
+                ampel={ampeln.get(v.id)}
                 jetzt={jetzt}
               />
             ))}
@@ -97,15 +111,17 @@ function FahrzeugZeile({
   vorgang: v,
   platz,
   gesehen,
+  ampel,
   jetzt,
 }: {
   vorgang: Vorgang
   platz: string | null
   gesehen: number
+  ampel: Ampel | undefined
   jetzt: Date
 }) {
   return (
-    <a className="fahrzeug" href={`#/fahrzeug/${v.id}`}>
+    <a className={`fahrzeug ampel-rand ${ampel?.farbe ?? ''}`} href={`#/fahrzeug/${v.id}`}>
       <div className="vorschau">{v.fotoIds[0] && <FotoAusDb fotoId={v.fotoIds[0]} alt="" />}</div>
       <div className="angaben">
         <div>
@@ -122,6 +138,11 @@ function FahrzeugZeile({
         <div className="unterzeile">
           {standdauerText(v.ersterfasstAm, jetzt)} · {gesehen}× gesehen
         </div>
+        {ampel && (
+          <div className="unterzeile">
+            <AmpelAnzeige ampel={ampel} />
+          </div>
+        )}
       </div>
     </a>
   )

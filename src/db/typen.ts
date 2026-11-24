@@ -56,8 +56,7 @@ export type KlaerungsGrund =
   | 'kein_kunde'
   | 'sonstiges'
 
-// Klärungen und Maßnahmen werden erst in Stufe 2 benutzt. Die Tabellen gibt es
-// trotzdem schon, damit die Datenbank später nicht umgebaut werden muss.
+// Ein Vorgang kann mehrere Klärungen haben; es gilt immer die neueste.
 export interface Klaerung extends Zeitstempel {
   id: string
   vorgangId: string
@@ -72,6 +71,7 @@ export type MassnahmeTyp =
   | 'sb_angesprochen'
   | 'kunde_kontaktiert'
   | 'eskalation_leitung'
+  | 'intern_angesprochen'
   | 'sonstiges'
 
 export interface Massnahme extends Zeitstempel {
@@ -96,6 +96,25 @@ export interface StellplatzBereich {
   bis: number
 }
 
+/**
+ * Schwellen der Ampel (siehe CLAUDE.md, Abschnitt „Ampel und Eskalation“).
+ * Tage sind Kalendertage ab der Ersterfassung, 0 = am selben Tag.
+ */
+export interface Schwellen {
+  /** ohne Klärung: rot, wenn das Fahrzeug so viele Kalendertage nach der Erfassung noch gesehen wird */
+  ohneKlaerungRotAbTag: number
+  /** fertig_*: gelb nach so vielen Stunden seit der Klärung */
+  abholfristGelbStunden: number
+  /** fertig_*: rot nach so vielen Stunden seit der Klärung */
+  abholfristRotStunden: number
+  /** andere Klärungsgründe: rot ab diesem Kalendertag nach der Erfassung (3 = Mo → Do) */
+  klaerungRotAbTag: number
+  /** Fremdparker/Mitarbeiter: gelb ab so vielen Tagen, an denen das Kennzeichen gesehen wurde */
+  antreffenGelb: number
+  /** Fremdparker/Mitarbeiter: rot ab so vielen Tagen */
+  antreffenRot: number
+}
+
 export interface Ebene {
   id: string
   name: string
@@ -114,6 +133,8 @@ export interface Einstellungen extends Zeitstempel {
   berichtEmpfaenger?: string
   /** Platznummer beim Erfassen automatisch um eins hochzählen (Standard: an) */
   platzHochzaehlen?: boolean
+  /** Ampel-Schwellen. Fehlt bei älteren Daten – dann gelten die Standardwerte (schwellenVon). */
+  schwellen?: Partial<Schwellen>
 }
 
 export const RUNDEN_TYP_TEXT: Record<RundenTyp, string> = {
@@ -133,4 +154,23 @@ export const ERGEBNIS_TEXT: Record<SichtungsErgebnis, string> = {
   neu: 'neu erfasst',
   noch_da: 'noch da',
   weg: 'weg',
+}
+
+export const KLAERUNG_TEXT: Record<KlaerungsGrund, string> = {
+  nicht_bearbeitet: 'Noch nicht bearbeitet',
+  wartet_auf_teile: 'Wartet auf Teile',
+  in_bearbeitung_extern: 'In Bearbeitung extern',
+  fertig_kunde_informiert: 'Fertig, Kunde informiert',
+  fertig_kunde_nicht_erreicht: 'Fertig, Kunde nicht erreicht',
+  kein_kunde: 'Kein Kunde',
+  sonstiges: 'Sonstiges',
+}
+
+export const MASSNAHME_TEXT: Record<MassnahmeTyp, string> = {
+  hinweiszettel: 'Hinweiszettel',
+  sb_angesprochen: 'SB angesprochen',
+  kunde_kontaktiert: 'Kunde kontaktiert',
+  eskalation_leitung: 'Eskalation an Leitung',
+  intern_angesprochen: 'Intern angesprochen',
+  sonstiges: 'Sonstiges',
 }

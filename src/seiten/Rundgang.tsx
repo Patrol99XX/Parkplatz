@@ -7,7 +7,9 @@ import { RUNDEN_TYP_TEXT, type Einstellungen, type Runde, type RundenTyp, type S
 import { formatZeit, standdauerText, vorgeschlagenerRundenTyp } from '../logik/zeit'
 import { normalisiereKennzeichen } from '../logik/kennzeichen'
 import { nachPlatz, platzEinlesen, platzText } from '../logik/stellplatz'
-import { Auswahl, FotoAusDb, Hinweis, Kopf, mitFehlermeldung } from '../komponenten'
+import { AmpelAnzeige, Auswahl, FotoAusDb, Hinweis, Kopf, mitFehlermeldung } from '../komponenten'
+import { ampelnLaden } from '../db/ampelDaten'
+import type { Ampel } from '../logik/ampel'
 import { geheZu } from '../navigation'
 
 export function Rundgang({ abschluss }: { abschluss: boolean }) {
@@ -82,7 +84,9 @@ function useRundenDaten(runde: Runde) {
     const proVorgang = new Map(sichtungen.map((s) => [s.vorgangId, s]))
     const vorgaenge = await db.vorgaenge.filter((v) => v.offen || proVorgang.has(v.id)).toArray()
     vorgaenge.sort((a, b) => a.ersterfasstAm.localeCompare(b.ersterfasstAm))
-    return { vorgaenge, proVorgang }
+    // Ampel nur für Fahrzeuge, die noch da sind; sie ändert sich live mit jedem „noch da“.
+    const { ampeln } = await ampelnLaden(vorgaenge.filter((v) => v.offen))
+    return { vorgaenge, proVorgang, ampeln }
   }, [runde.id])
 }
 
@@ -109,7 +113,7 @@ function Laufend({ runde, einstellungen }: { runde: Runde; einstellungen: Einste
   const suchFeld = useRef<HTMLInputElement>(null)
   if (!daten) return null
 
-  const { vorgaenge, proVorgang } = daten
+  const { vorgaenge, proVorgang, ampeln } = daten
   const unentschieden = vorgaenge.filter((v) => !proVorgang.has(v.id))
   // Suche ohne Leerzeichen/Bindestriche: „ab1“ findet „HH-AB 123“, „0.05“ findet den Platz
   const suchText = normalisiereKennzeichen(suche)
@@ -189,6 +193,7 @@ function Laufend({ runde, einstellungen }: { runde: Runde; einstellungen: Einste
                 key={v.id}
                 vorgang={v}
                 sichtung={proVorgang.get(v.id)}
+                ampel={ampeln.get(v.id)}
                 runde={runde}
                 einstellungen={einstellungen}
                 nachEntscheidung={nachEntscheidung}
@@ -224,12 +229,14 @@ function Laufend({ runde, einstellungen }: { runde: Runde; einstellungen: Einste
 function RundenFahrzeug({
   vorgang: v,
   sichtung,
+  ampel,
   runde,
   einstellungen,
   nachEntscheidung,
 }: {
   vorgang: Vorgang
   sichtung: Sichtung | undefined
+  ampel?: Ampel
   runde: Runde
   einstellungen: Einstellungen
   nachEntscheidung?: () => void
@@ -246,6 +253,7 @@ function RundenFahrzeug({
         </div>
         <div className="angaben">
           <div>
+            {ampel && ergebnis !== 'weg' && <AmpelAnzeige ampel={ampel} kompakt />}
             <span className="kennzeichen">{v.kennzeichenAnzeige}</span>
             {ergebnis === 'neu' && <span className="marke neu">neu</span>}
           </div>

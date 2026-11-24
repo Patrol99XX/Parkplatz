@@ -3,6 +3,8 @@ import { useEffect, useState, type ReactNode, type Ref } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from './db/db'
 import { verkleinereFoto } from './logik/foto'
+import type { Ampel, AmpelFarbe } from './logik/ampel'
+import { MASSNAHME_TEXT } from './db/typen'
 
 /**
  * Seitenkopf. zurueck = feste Zielseite; zurueck="verlauf" geht wie der Zurück-Knopf
@@ -125,6 +127,46 @@ export function FotoVollbild({ fotoId, schliessen }: { fotoId: string; schliesse
     <div className="vollbild" onClick={schliessen} role="dialog" aria-label="Foto, tippen zum Schließen">
       <FotoAusDb fotoId={fotoId} alt="Foto" />
     </div>
+  )
+}
+
+const AMPEL_TEXT: Record<AmpelFarbe, string> = { gruen: 'Grün', gelb: 'Gelb', rot: 'Rot' }
+
+/**
+ * Ampelpunkt mit Begründung. Die Farbe steht zusätzlich als Text im Punkt (für Vorlesefunktion
+ * und Rot-Grün-Schwäche); kompakt = nur der Punkt, z. B. im Rundgang.
+ */
+export function AmpelAnzeige({
+  ampel,
+  kompakt = false,
+  mitVorschlag = false,
+}: {
+  ampel: Ampel
+  kompakt?: boolean
+  mitVorschlag?: boolean
+}) {
+  const punkt = (
+    <span
+      className={`ampel-punkt ${ampel.farbe}`}
+      role="img"
+      aria-label={`Ampel ${AMPEL_TEXT[ampel.farbe]}: ${ampel.grund}`}
+      title={ampel.grund}
+    />
+  )
+  if (kompakt) return punkt
+  return (
+    <span className="ampel-zeile">
+      {punkt}
+      <span>
+        {ampel.grund}
+        {mitVorschlag && ampel.vorschlag && (
+          <>
+            <br />
+            <strong>Vorschlag: {MASSNAHME_TEXT[ampel.vorschlag]}</strong>
+          </>
+        )}
+      </span>
+    </span>
   )
 }
 

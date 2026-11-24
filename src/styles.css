@@ -13,6 +13,7 @@
   --grau: #555;
   --grau-hell: #ececec;
   --rot: #d50f25;
+  --gelb: #f2b705;
   --gelb-hell: #fff4d1;
   --rand: #cfcfcf;
   --hintergrund: #ebe8e4; /* warmes Grau statt Weiß, wie Hamburger Nebel */
@@ -784,4 +785,59 @@ label.feld > span,
   font-size: 1.15rem;
   font-weight: 700;
   letter-spacing: 0.03em;
+}
+
+/* ---------- Ampel ----------
+   Punkt mit dunklem Rand, damit er auch in der Sonne und auf hellem Grund erkennbar ist. */
+.ampel-punkt {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--schwarz);
+  vertical-align: -2px;
+  margin-right: 6px;
+  flex: 0 0 16px;
+}
+.ampel-punkt.gruen { background: var(--gruen); }
+.ampel-punkt.gelb { background: var(--gelb); }
+.ampel-punkt.rot { background: var(--rot); }
+
+.ampel-zeile {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 2px;
+}
+.ampel-zeile .ampel-punkt { margin-top: 3px; }
+
+/* Farbiger linker Rand: rote Fahrzeuge fallen beim Überfliegen der Liste sofort auf */
+.ampel-rand { border-left: 6px solid transparent; }
+.ampel-rand.gruen { border-left-color: var(--gruen); }
+.ampel-rand.gelb { border-left-color: var(--gelb); }
+.ampel-rand.rot { border-left-color: var(--rot); }
+
+.ampel-zaehler {
+  font-weight: 700;
+  padding: 0 6px;
+  border-radius: 4px;
+}
+.ampel-zaehler.rot { background: var(--akzent-hell); color: var(--rot); }
+.ampel-zaehler.gelb { background: var(--gelb-hell); color: #6b5000; }
+
+/* Einstellungen: Ampel-Schwellen */
+.schwellen label {
+  display: block;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--grau-hell);
+}
+.schwelle-wert {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+.schwelle-wert input {
+  width: 80px;
+  flex: 0 0 80px;
+  text-align: center;
 }

@@ -1,7 +1,7 @@
 // Alle schreibenden Datenbankzugriffe an einer Stelle. Zusammengehörige Änderungen
 // laufen in einer Transaktion: Entweder wird alles gespeichert oder nichts.
 import { db } from './db'
-import type { Einstellungen, Kategorie, Runde, StellplatzBereich, RundenTyp, SichtungsErgebnis, Vorgang } from './typen'
+import type { Einstellungen, Kategorie, Runde, Schwellen, StellplatzBereich, RundenTyp, SichtungsErgebnis, Vorgang } from './typen'
 import { jetztIso, neueId } from '../logik/uuid'
 import { istOhneKennzeichen, normalisiereKennzeichen } from '../logik/kennzeichen'
 
@@ -72,6 +72,20 @@ export async function platzHochzaehlenSetzen(an: boolean) {
 export async function berichtEmpfaengerSetzen(adresse: string) {
   await einstellungenAendern((e) => {
     e.berichtEmpfaenger = adresse.trim()
+  })
+}
+
+/** Eine Ampel-Schwelle ändern. Nur geänderte Werte werden gespeichert, der Rest bleibt Standard. */
+export async function schwelleSetzen(name: keyof Schwellen, wert: number) {
+  await einstellungenAendern((e) => {
+    e.schwellen = { ...e.schwellen, [name]: wert }
+  })
+}
+
+/** Alle Ampel-Schwellen auf die Standardwerte zurücksetzen. */
+export async function schwellenZuruecksetzen() {
+  await einstellungenAendern((e) => {
+    delete e.schwellen
   })
 }
 

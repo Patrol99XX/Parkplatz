@@ -10,9 +10,12 @@ import {
   ebeneUmbenennen,
   ebeneVerschieben,
   platzHochzaehlenSetzen,
+  schwelleSetzen,
+  schwellenZuruecksetzen,
 } from '../db/aktionen'
-import type { Ebene } from '../db/typen'
+import type { Ebene, Einstellungen as EinstellungenDaten, Schwellen } from '../db/typen'
 import { platzText } from '../logik/stellplatz'
+import { schwellenVon, STANDARD_SCHWELLEN } from '../logik/ampel'
 
 export function Einstellungen() {
   const einstellungen = useEinstellungen()
@@ -118,6 +121,8 @@ export function Einstellungen() {
         </label>
       </section>
 
+      <AmpelSchwellen einstellungen={einstellungen} />
+
       <section className="karte">
         <h2>Bericht per E-Mail</h2>
         <p className="klein">
@@ -210,5 +215,62 @@ function Stellplaetze({ ebene }: { ebene: Ebene }) {
         Keine Nummerierung
       </button>
     </div>
+  )
+}
+
+/** Beschriftung, Einheit und gültiger Bereich je Schwelle. Reihenfolge = Anzeige. */
+const SCHWELLEN_FELDER: { name: keyof Schwellen; text: string; einheit: string; min: number }[] = [
+  { name: 'ohneKlaerungRotAbTag', text: 'Ohne Klärung: rot, wenn noch da nach', einheit: 'Kalendertag(en)', min: 1 },
+  { name: 'klaerungRotAbTag', text: 'Mit Klärungsgrund: rot ab', einheit: 'Kalendertagen (3 = Mo → Do)', min: 1 },
+  { name: 'abholfristGelbStunden', text: 'Fertig: gelb nach', einheit: 'Stunden', min: 1 },
+  { name: 'abholfristRotStunden', text: 'Fertig: rot nach', einheit: 'Stunden', min: 1 },
+  { name: 'antreffenGelb', text: 'Fremdparker/Mitarbeiter: gelb ab', einheit: 'Tagen gesehen', min: 1 },
+  { name: 'antreffenRot', text: 'Fremdparker/Mitarbeiter: rot ab', einheit: 'Tagen gesehen', min: 1 },
+]
+
+function AmpelSchwellen({ einstellungen }: { einstellungen: EinstellungenDaten }) {
+  const s = schwellenVon(einstellungen)
+  const geaendert = SCHWELLEN_FELDER.some((f) => s[f.name] !== STANDARD_SCHWELLEN[f.name])
+  return (
+    <section className="karte">
+      <h2>Ampel</h2>
+      <p className="klein">
+        Gezählt wird ab der Ersterfassung in Kalendertagen bzw. ab der Klärung in Stunden – immer bis
+        zur letzten Kontrolle, in der das Fahrzeug gesehen wurde. Änderungen wirken sofort auf alle
+        Fahrzeuge.
+      </p>
+      <div className="schwellen">
+        {SCHWELLEN_FELDER.map((f) => (
+          <label key={f.name}>
+            <span>{f.text}</span>
+            <span className="schwelle-wert">
+              <input
+                inputMode="numeric"
+                defaultValue={s[f.name]}
+                key={`${f.name}-${s[f.name]}`}
+                onBlur={(ev) => {
+                  const n = Number(ev.target.value)
+                  if (Number.isInteger(n) && n >= f.min) {
+                    if (n !== s[f.name]) schwelleSetzen(f.name, n)
+                  } else {
+                    ev.target.value = String(s[f.name])
+                  }
+                }}
+              />
+              <span className="klein">{f.einheit}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+      {geaendert && (
+        <button
+          type="button"
+          className="text-knopf"
+          onClick={() => confirm('Alle Ampel-Schwellen auf die Standardwerte zurücksetzen?') && schwellenZuruecksetzen()}
+        >
+          Standardwerte wiederherstellen
+        </button>
+      )}
+    </section>
   )
 }
